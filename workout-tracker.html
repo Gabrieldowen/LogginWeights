@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Iron Track">
+    <title>Iron Track - Strength Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #151515;
+            --bg-tertiary: #1f1f1f;
+            --accent-primary: #ff3b30;
+            --accent-glow: rgba(255, 59, 48, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-tertiary: #606060;
+            --success: #34c759;
+            --warning: #ff9500;
+            --border: #2a2a2a;
+            --shadow: rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            font-family: 'Barlow', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(10, 10, 10, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            padding: max(env(safe-area-inset-top), 20px) 24px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 42px;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #ff6b66 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            text-shadow: 0 0 30px var(--accent-glow);
+            animation: titlePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-value {
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 24px 24px 120px;
+        }
+
+        /* Log Workout Section */
+        .log-section {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .input-mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 16px;
+            letter-spacing: 1px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn.active {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .manual-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-family: 'Barlow', sans-serif;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .exercise-entry {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .exercise-entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .remove-btn {
+            background: rgba(255, 59, 48, 0.2);
+            border: none;
+            color: var(--accent-primary);
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-exercise-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-family: 'Barlow', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .add-exercise-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .set-input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .set-input-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .add-set-btn {
+            padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .log-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), #ff6b66, var(--accent-primary));
+            background-size: 200% 100%;
+            animation: gradientShift 3s linear infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 24px;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .voice-input-container {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .voice-textarea {
+            width: 100%;
+            min-height: 120px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            color: var(--text-primary);
+            font-family: 'Barlow', sans-serif;
+            font-size: 16px;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .voice-textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .voice-textarea::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 18px;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #c92a21 100%);
+            color: white;
+            box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(2px);
+            box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:active {
+            background: var(--bg-primary);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Workout History */
+        .history-section {
+            margin-bottom: 32px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .export-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Barlow', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .export-btn:active {
+            background: var(--bg-tertiary);
+            color: var(--accent-primary);
+        }
+
+        .workout-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .workout-card:active {
+            transform: scale(0.98);
+            border-color: var(--accent-primary);
+        }
+
+        .workout-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .workout-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .workout-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .edit-workout-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .edit-workout-btn:active {
+            background: var(--bg-primary);
+            color: var(--accent-primary);
+        }
+
+        .workout-date {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .workout-category {
+            display: inline-block;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            background: var(--bg-tertiary);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .workout-duration {
+            font-size: 13px;
+            color: var(--accent-primary);
+            font-weight: 700;
+            background: rgba(255, 59, 48, 0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .exercise-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .exercise-item {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 10px;
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .exercise-name {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .sets-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .set-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .set-badge {
+            background: var(--bg-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .set-badge .weight {
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+
+        .set-reps-list {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .workout-notes {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* PR Badge */
+        .pr-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--warning) 0%, #ffb340 100%);
+            color: var(--bg-primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-left: 8px;
+            box-shadow: 0 4px 12px rgba(255, 149, 0, 0.4);
+            animation: prPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes prPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Progress Chart Section */
+        .chart-section {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-placeholder {
+            height: 200px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            font-size: 14px;
+            border: 2px dashed var(--border);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-text {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: calc(80px + env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--success);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            box-shadow: 0 8px 24px var(--shadow);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 12px 24px calc(12px + env(safe-area-inset-bottom));
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: 'Barlow', sans-serif;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 59, 48, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Exercise List View */
+        .exercise-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .exercise-tile {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px 16px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .exercise-tile:active {
+            transform: scale(0.96);
+            border-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .exercise-tile-name {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .exercise-tile-stats {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .exercise-tile-pr {
+            margin-top: 8px;
+            font-size: 18px;
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+
+        /* Exercise Detail View */
+        .detail-header {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .back-button {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Barlow', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-button:active {
+            background: var(--bg-primary);
+        }
+
+        .detail-exercise-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 32px;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .detail-stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .stat-box {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-box-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .stat-box-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        /* Time Filter */
+        .time-filter {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .time-filter::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Barlow', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        /* Set History */
+        .set-history-item {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .set-history-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .set-history-sets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 600px) {
+            .header-title {
+                font-size: 52px;
+            }
+            
+            .main-content {
+                padding: 32px 32px 120px;
+            }
+
+            .exercise-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Touch feedback */
+        @media (hover: none) {
+            .workout-card:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Sample workout data for demonstration
+        const sampleWorkouts = [
+            {
+                id: 1,
+                date: '2026-01-28',
+                duration_minutes: 65,
+                workout_type: 'strength',
+                exercises: [
+                    {
+                        name: 'Bench Press',
+                        sets: [
+                            { reps: 10, weight_lbs: 185 },
+                            { reps: 8, weight_lbs: 185 },
+                            { reps: 6, weight_lbs: 185 }
+                        ]
+                    },
+                    {
+                        name: 'Squats',
+                        sets: [
+                            { reps: 10, weight_lbs: 225 },
+                            { reps: 10, weight_lbs: 235 },
+                            { reps: 10, weight_lbs: 245 }
+                        ]
+                    },
+                    {
+                        name: 'Deadlift',
+                        sets: [
+                            { reps: 8, weight_lbs: 315 }
+                        ]
+                    }
+                ],
+                notes: 'Felt strong today. New PR on squats at 245lbs!'
+            },
+            {
+                id: 2,
+                date: '2026-01-26',
+                duration_minutes: 55,
+                workout_type: 'strength',
+                exercises: [
+                    {
+                        name: 'Overhead Press',
+                        sets: [
+                            { reps: 10, weight_lbs: 115 },
+                            { reps: 10, weight_lbs: 125 },
+                            { reps: 7, weight_lbs: 135 }
+                        ]
+                    },
+                    {
+                        name: 'Pull-ups',
+                        sets: [
+                            { reps: 12, weight_lbs: 0 },
+                            { reps: 10, weight_lbs: 0 },
+                            { reps: 8, weight_lbs: 0 }
+                        ]
+                    }
+                ],
+                notes: 'Upper body day. Good pump.'
+            },
+            {
+                id: 3,
+                date: '2026-01-24',
+                duration_minutes: 70,
+                workout_type: 'strength',
+                exercises: [
+                    {
+                        name: 'Bench Press',
+                        sets: [
+                            { reps: 10, weight_lbs: 175 },
+                            { reps: 10, weight_lbs: 185 },
+                            { reps: 10, weight_lbs: 195 }
+                        ]
+                    },
+                    {
+                        name: 'Incline Dumbbell Press',
+                        sets: [
+                            { reps: 10, weight_lbs: 70 },
+                            { reps: 10, weight_lbs: 75 }
+                        ]
+                    }
+                ],
+                notes: 'Chest focused session'
+            }
+        ];
+
+        function App() {
+            const [workouts, setWorkouts] = useState(sampleWorkouts);
+            const [voiceInput, setVoiceInput] = useState('');
+            const [inputMode, setInputMode] = useState('voice'); // 'voice' or 'manual'
+            const [currentView, setCurrentView] = useState('log'); // 'log', 'exercises', 'detail'
+            const [selectedExercise, setSelectedExercise] = useState(null);
+            const [timeFilter, setTimeFilter] = useState('all'); // 'all', 'month', '3months', '6months', 'year'
+            const [isLoading, setIsLoading] = useState(false);
+            const [showToast, setShowToast] = useState(false);
+            const [toastMessage, setToastMessage] = useState('');
+            const [editingWorkout, setEditingWorkout] = useState(null); // Workout being edited
+            
+            // Manual entry state
+            const [manualWorkout, setManualWorkout] = useState({
+                date: new Date().toISOString().split('T')[0],
+                duration_minutes: '',
+                exercises: [{
+                    name: '',
+                    sets: [{ reps: '', weight_lbs: '' }]
+                }],
+                notes: ''
+            });
+
+            const totalWorkouts = workouts.length;
+            const thisWeekWorkouts = workouts.filter(w => {
+                const workoutDate = new Date(w.date);
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return workoutDate >= weekAgo;
+            }).length;
+
+            // Get all unique exercises with stats
+            const getExerciseList = () => {
+                const exerciseMap = {};
+                
+                workouts.forEach(workout => {
+                    workout.exercises.forEach(exercise => {
+                        if (!exerciseMap[exercise.name]) {
+                            exerciseMap[exercise.name] = {
+                                name: exercise.name,
+                                totalSets: 0,
+                                totalWorkouts: new Set(),
+                                bestSet: null, // Store best set with weight and reps
+                                allSets: []
+                            };
+                        }
+                        
+                        exerciseMap[exercise.name].totalWorkouts.add(workout.date);
+                        
+                        exercise.sets.forEach(set => {
+                            exerciseMap[exercise.name].totalSets++;
+                            exerciseMap[exercise.name].allSets.push({
+                                ...set,
+                                date: workout.date
+                            });
+                            
+                            // Track best set (prioritize 10+ reps, then highest weight)
+                            const current = exerciseMap[exercise.name].bestSet;
+                            if (!current || 
+                                (set.reps >= 10 && set.weight_lbs > current.weight_lbs) ||
+                                (set.reps >= 10 && current.reps < 10) ||
+                                (set.reps >= current.reps && set.weight_lbs > current.weight_lbs)) {
+                                exerciseMap[exercise.name].bestSet = {
+                                    weight_lbs: set.weight_lbs,
+                                    reps: set.reps
+                                };
+                            }
+                        });
+                    });
+                });
+                
+                return Object.values(exerciseMap).map(ex => ({
+                    ...ex,
+                    totalWorkouts: ex.totalWorkouts.size
+                }));
+            };
+
+            // Filter exercise sets by time
+            const getFilteredSets = (exerciseName) => {
+                const now = new Date();
+                let cutoffDate = new Date(0); // Beginning of time
+                
+                if (timeFilter === 'month') {
+                    cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                } else if (timeFilter === '3months') {
+                    cutoffDate = new Date(now.setMonth(now.getMonth() - 3));
+                } else if (timeFilter === '6months') {
+                    cutoffDate = new Date(now.setMonth(now.getMonth() - 6));
+                } else if (timeFilter === 'year') {
+                    cutoffDate = new Date(now.setFullYear(now.getFullYear() - 1));
+                }
+                
+                const filteredWorkouts = workouts.filter(w => new Date(w.date) >= cutoffDate);
+                const sets = [];
+                
+                filteredWorkouts.forEach(workout => {
+                    const exercise = workout.exercises.find(ex => ex.name === exerciseName);
+                    if (exercise) {
+                        sets.push({
+                            date: workout.date,
+                            sets: exercise.sets,
+                            notes: workout.notes
+                        });
+                    }
+                });
+                
+                return sets.reverse(); // Most recent first
+            };
+
+            const getExerciseStats = (exerciseName) => {
+                const sets = getFilteredSets(exerciseName);
+                let totalSets = 0;
+                let maxWeight = 0;
+                let totalVolume = 0;
+                
+                sets.forEach(session => {
+                    session.sets.forEach(set => {
+                        totalSets++;
+                        if (set.weight_lbs > maxWeight) maxWeight = set.weight_lbs;
+                        totalVolume += (set.reps * set.weight_lbs);
+                    });
+                });
+                
+                return {
+                    totalSets,
+                    maxWeight,
+                    totalVolume,
+                    sessions: sets.length
+                };
+            };
+
+            const showToastNotification = (message) => {
+                setToastMessage(message);
+                setShowToast(true);
+                setTimeout(() => setShowToast(false), 3000);
+            };
+
+            const handleVoiceInput = () => {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    const recognition = new SpeechRecognition();
+                    
+                    recognition.continuous = false;
+                    recognition.interimResults = false;
+                    
+                    recognition.onstart = () => {
+                        showToastNotification('Listening...');
+                    };
+                    
+                    recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        setVoiceInput(transcript);
+                        showToastNotification('Got it!');
+                    };
+                    
+                    recognition.onerror = (event) => {
+                        console.error('Speech recognition error:', event.error);
+                        showToastNotification('Error: ' + event.error);
+                    };
+                    
+                    recognition.start();
+                } else {
+                    showToastNotification('Speech recognition not supported on this device');
+                }
+            };
+
+            const handleLogWorkout = async () => {
+                let workoutData;
+                
+                if (inputMode === 'voice') {
+                    if (!voiceInput.trim()) {
+                        showToastNotification('Please enter workout details');
+                        return;
+                    }
+                    workoutData = { text: voiceInput };
+                } else {
+                    // Validate manual entry
+                    if (!manualWorkout.exercises[0].name) {
+                        showToastNotification('Please add at least one exercise');
+                        return;
+                    }
+                    workoutData = manualWorkout;
+                }
+
+                setIsLoading(true);
+                
+                // This is where we'll send to n8n webhook
+                // For now, simulate API call
+                try {
+                    // TODO: Replace with actual n8n webhook URL
+                    // const response = await fetch('YOUR_N8N_WEBHOOK_URL', {
+                    //     method: 'POST',
+                    //     headers: { 'Content-Type': 'application/json' },
+                    //     body: JSON.stringify(workoutData)
+                    // });
+                    
+                    setTimeout(() => {
+                        showToastNotification('Workout logged successfully! 💪');
+                        
+                        // Reset forms
+                        setVoiceInput('');
+                        setManualWorkout({
+                            date: new Date().toISOString().split('T')[0],
+                            duration_minutes: '',
+                            exercises: [{ name: '', sets: [{ reps: '', weight_lbs: '' }] }],
+                            notes: ''
+                        });
+                        
+                        setIsLoading(false);
+                    }, 1500);
+                } catch (error) {
+                    showToastNotification('Error logging workout');
+                    setIsLoading(false);
+                }
+            };
+
+            // Manual entry handlers
+            const updateExercise = (exerciseIdx, field, value) => {
+                const updated = { ...manualWorkout };
+                updated.exercises[exerciseIdx][field] = value;
+                setManualWorkout(updated);
+            };
+
+            const updateSet = (exerciseIdx, setIdx, field, value) => {
+                const updated = { ...manualWorkout };
+                updated.exercises[exerciseIdx].sets[setIdx][field] = value;
+                setManualWorkout(updated);
+            };
+
+            const addSet = (exerciseIdx) => {
+                const updated = { ...manualWorkout };
+                updated.exercises[exerciseIdx].sets.push({ reps: '', weight_lbs: '' });
+                setManualWorkout(updated);
+            };
+
+            const removeSet = (exerciseIdx, setIdx) => {
+                const updated = { ...manualWorkout };
+                if (updated.exercises[exerciseIdx].sets.length > 1) {
+                    updated.exercises[exerciseIdx].sets.splice(setIdx, 1);
+                    setManualWorkout(updated);
+                }
+            };
+
+            const addExercise = () => {
+                const updated = { ...manualWorkout };
+                updated.exercises.push({ name: '', sets: [{ reps: '', weight_lbs: '' }] });
+                setManualWorkout(updated);
+            };
+
+            const removeExercise = (exerciseIdx) => {
+                const updated = { ...manualWorkout };
+                if (updated.exercises.length > 1) {
+                    updated.exercises.splice(exerciseIdx, 1);
+                    setManualWorkout(updated);
+                }
+            };
+
+            const handleEditWorkout = (workout) => {
+                setEditingWorkout(workout);
+                setManualWorkout({
+                    date: workout.date,
+                    duration_minutes: workout.duration_minutes,
+                    exercises: JSON.parse(JSON.stringify(workout.exercises)), // Deep copy
+                    notes: workout.notes || ''
+                });
+                setInputMode('manual');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const handleSaveEdit = async () => {
+                if (!editingWorkout) return;
+                
+                setIsLoading(true);
+                
+                // Simulate API call
+                setTimeout(() => {
+                    const updatedWorkouts = workouts.map(w => 
+                        w.id === editingWorkout.id 
+                            ? { ...editingWorkout, ...manualWorkout }
+                            : w
+                    );
+                    
+                    setWorkouts(updatedWorkouts);
+                    setEditingWorkout(null);
+                    setManualWorkout({
+                        date: new Date().toISOString().split('T')[0],
+                        duration_minutes: '',
+                        exercises: [{ name: '', sets: [{ reps: '', weight_lbs: '' }] }],
+                        notes: ''
+                    });
+                    
+                    showToastNotification('Workout updated! 💪');
+                    setIsLoading(false);
+                }, 1000);
+            };
+
+            const handleCancelEdit = () => {
+                setEditingWorkout(null);
+                setManualWorkout({
+                    date: new Date().toISOString().split('T')[0],
+                    duration_minutes: '',
+                    exercises: [{ name: '', sets: [{ reps: '', weight_lbs: '' }] }],
+                    notes: ''
+                });
+            };
+
+            // Group sets by weight for better display
+            const groupSetsByWeight = (sets) => {
+                const grouped = {};
+                sets.forEach(set => {
+                    const key = set.weight_lbs;
+                    if (!grouped[key]) {
+                        grouped[key] = [];
+                    }
+                    grouped[key].push(set.reps);
+                });
+                
+                return Object.entries(grouped).map(([weight, reps]) => ({
+                    weight_lbs: parseInt(weight),
+                    reps: reps
+                }));
+            };
+
+            // Categorize workout as Push/Pull/Legs
+            const categorizeWorkout = (workout) => {
+                const pushExercises = ['bench press', 'overhead press', 'incline', 'dumbbell press', 'shoulder press', 'tricep', 'dips', 'chest'];
+                const pullExercises = ['pull-up', 'pullup', 'row', 'deadlift', 'lat pulldown', 'bicep', 'curl', 'back'];
+                const legExercises = ['squat', 'leg press', 'lunge', 'leg curl', 'leg extension', 'calf', 'hamstring', 'quad'];
+                
+                let pushCount = 0;
+                let pullCount = 0;
+                let legCount = 0;
+                
+                workout.exercises.forEach(exercise => {
+                    const name = exercise.name.toLowerCase();
+                    
+                    if (pushExercises.some(ex => name.includes(ex))) pushCount++;
+                    if (pullExercises.some(ex => name.includes(ex))) pullCount++;
+                    if (legExercises.some(ex => name.includes(ex))) legCount++;
+                });
+                
+                // Determine category based on which has most exercises
+                if (pushCount > pullCount && pushCount > legCount) return 'PUSH';
+                if (pullCount > pushCount && pullCount > legCount) return 'PULL';
+                if (legCount > pushCount && legCount > pullCount) return 'LEGS';
+                
+                // If mixed or equal, check for specific combinations
+                if (pushCount > 0 && legCount > 0) return 'PUSH/LEGS';
+                if (pullCount > 0 && legCount > 0) return 'PULL/LEGS';
+                if (pushCount > 0 && pullCount > 0) return 'PUSH/PULL';
+                
+                return 'FULL BODY';
+            };
+
+            const handleExport = (format) => {
+                showToastNotification(`Exporting as ${format.toUpperCase()}...`);
+                
+                if (format === 'json') {
+                    const dataStr = JSON.stringify(workouts, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `workouts-${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                } else if (format === 'csv') {
+                    // Simple CSV export
+                    let csv = 'Date,Exercise,Sets,Reps,Weight (lbs),Notes\n';
+                    workouts.forEach(workout => {
+                        workout.exercises.forEach(exercise => {
+                            exercise.sets.forEach((set, idx) => {
+                                csv += `${workout.date},${exercise.name},${idx + 1},${set.reps},${set.weight_lbs},"${workout.notes || ''}"\n`;
+                            });
+                        });
+                    });
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `workouts-${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                }
+            };
+
+            const formatDate = (dateString) => {
+                const date = new Date(dateString);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (date.toDateString() === today.toDateString()) {
+                    return 'Today';
+                } else if (date.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday';
+                } else {
+                    return date.toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                }
+            };
+
+            return (
+                <div className="app-container">
+                    <header className="header">
+                        <h1 className="header-title">IRON TRACK</h1>
+                        <div className="header-stats">
+                            <div className="stat-item">
+                                <span>Total:</span>
+                                <span className="stat-value">{totalWorkouts}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span>This Week:</span>
+                                <span className="stat-value">{thisWeekWorkouts}</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="main-content">
+                        {currentView === 'log' && (
+                            <>
+                                <section className="log-section">
+                                    <h2 className="section-title">
+                                        {editingWorkout ? 'EDIT WORKOUT' : 'LOG WORKOUT'}
+                                    </h2>
+                                    
+                                    {editingWorkout && (
+                                        <div style={{
+                                            background: 'rgba(255, 149, 0, 0.1)',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            marginBottom: '16px',
+                                            border: '1px solid var(--warning)',
+                                            fontSize: '13px',
+                                            color: 'var(--warning)'
+                                        }}>
+                                            ⚠️ Editing workout from {formatDate(editingWorkout.date)}
+                                        </div>
+                                    )}
+
+                                    <div className="input-mode-toggle">
+                                        <button 
+                                            className={`toggle-btn ${inputMode === 'voice' ? 'active' : ''}`}
+                                            onClick={() => setInputMode('voice')}
+                                            disabled={editingWorkout !== null}
+                                        >
+                                            🎤 Voice/Text
+                                        </button>
+                                        <button 
+                                            className={`toggle-btn ${inputMode === 'manual' ? 'active' : ''}`}
+                                            onClick={() => setInputMode('manual')}
+                                        >
+                                            ✏️ Manual Entry
+                                        </button>
+                                    </div>
+
+                                    {inputMode === 'voice' ? (
+                                        <>
+                                            <div className="voice-input-container">
+                                                <textarea
+                                                    className="voice-textarea"
+                                                    placeholder="Paste or type your workout... e.g., 'Did bench press 3 sets of 10 reps at 185 pounds, then squats 225 for 12 reps'"
+                                                    value={voiceInput}
+                                                    onChange={(e) => setVoiceInput(e.target.value)}
+                                                />
+                                            </div>
+                                            <button 
+                                                className="btn btn-primary" 
+                                                onClick={handleLogWorkout}
+                                                disabled={isLoading || !voiceInput.trim()}
+                                                style={{width: '100%'}}
+                                            >
+                                                {isLoading ? 'Logging...' : '💪 Log Workout'}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="manual-form">
+                                            <div className="form-row">
+                                                <div className="form-group">
+                                                    <label className="form-label">Date</label>
+                                                    <input 
+                                                        type="date" 
+                                                        className="form-input"
+                                                        value={manualWorkout.date}
+                                                        onChange={(e) => setManualWorkout({...manualWorkout, date: e.target.value})}
+                                                    />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label className="form-label">Duration (min)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-input"
+                                                        placeholder="60"
+                                                        value={manualWorkout.duration_minutes}
+                                                        onChange={(e) => setManualWorkout({...manualWorkout, duration_minutes: e.target.value})}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {manualWorkout.exercises.map((exercise, exerciseIdx) => (
+                                                <div key={exerciseIdx} className="exercise-entry">
+                                                    <div className="exercise-entry-header">
+                                                        <div className="form-group" style={{marginBottom: 0, flex: 1}}>
+                                                            <label className="form-label">Exercise {exerciseIdx + 1}</label>
+                                                            <input 
+                                                                type="text" 
+                                                                className="form-input"
+                                                                placeholder="e.g., Bench Press"
+                                                                value={exercise.name}
+                                                                onChange={(e) => updateExercise(exerciseIdx, 'name', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        {manualWorkout.exercises.length > 1 && (
+                                                            <button 
+                                                                className="remove-btn"
+                                                                onClick={() => removeExercise(exerciseIdx)}
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {exercise.sets.map((set, setIdx) => (
+                                                        <div key={setIdx} className="set-input-row">
+                                                            <input 
+                                                                type="number" 
+                                                                className="form-input"
+                                                                placeholder="Reps"
+                                                                value={set.reps}
+                                                                onChange={(e) => updateSet(exerciseIdx, setIdx, 'reps', e.target.value)}
+                                                            />
+                                                            <input 
+                                                                type="number" 
+                                                                className="form-input"
+                                                                placeholder="Weight (lbs)"
+                                                                value={set.weight_lbs}
+                                                                onChange={(e) => updateSet(exerciseIdx, setIdx, 'weight_lbs', e.target.value)}
+                                                            />
+                                                            {exercise.sets.length > 1 && (
+                                                                <button 
+                                                                    className="remove-btn"
+                                                                    onClick={() => removeSet(exerciseIdx, setIdx)}
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+
+                                                    <button 
+                                                        className="add-set-btn"
+                                                        onClick={() => addSet(exerciseIdx)}
+                                                    >
+                                                        + Add Set
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            <button className="add-exercise-btn" onClick={addExercise}>
+                                                + Add Exercise
+                                            </button>
+
+                                            <div className="form-group">
+                                                <label className="form-label">Notes (Optional)</label>
+                                                <textarea 
+                                                    className="voice-textarea"
+                                                    style={{minHeight: '80px'}}
+                                                    placeholder="How did it feel? Any PRs?"
+                                                    value={manualWorkout.notes}
+                                                    onChange={(e) => setManualWorkout({...manualWorkout, notes: e.target.value})}
+                                                />
+                                            </div>
+
+                                            <div className="button-group">
+                                                {editingWorkout && (
+                                                    <button 
+                                                        className="btn btn-secondary" 
+                                                        onClick={handleCancelEdit}
+                                                        disabled={isLoading}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    className="btn btn-primary" 
+                                                    onClick={editingWorkout ? handleSaveEdit : handleLogWorkout}
+                                                    disabled={isLoading}
+                                                    style={{flex: editingWorkout ? 1 : 'auto', width: editingWorkout ? 'auto' : '100%'}}
+                                                >
+                                                    {isLoading ? 'Saving...' : editingWorkout ? '✓ Save Changes' : '💪 Log Workout'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+
+                                <section className="history-section">
+                                    <div className="history-header">
+                                        <h2 className="section-title">WORKOUT HISTORY</h2>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="export-btn" onClick={() => handleExport('json')}>
+                                                JSON
+                                            </button>
+                                            <button className="export-btn" onClick={() => handleExport('csv')}>
+                                                CSV
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {workouts.length === 0 ? (
+                                        <div className="empty-state">
+                                            <div className="empty-icon">💪</div>
+                                            <p className="empty-text">
+                                                No workouts logged yet.<br />
+                                                Start tracking your gains!
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        workouts.map(workout => (
+                                            <div key={workout.id} className="workout-card">
+                                                <div className="workout-header">
+                                                    <div className="workout-header-left">
+                                                        <span className="workout-date">
+                                                            {formatDate(workout.date)}
+                                                        </span>
+                                                        <span className="workout-category">
+                                                            {categorizeWorkout(workout)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="workout-header-right">
+                                                        <span className="workout-duration">
+                                                            {workout.duration_minutes} min
+                                                        </span>
+                                                        <button 
+                                                            className="edit-workout-btn"
+                                                            onClick={() => handleEditWorkout(workout)}
+                                                        >
+                                                            ✏️ Edit
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="exercise-list">
+                                                    {workout.exercises.map((exercise, idx) => {
+                                                        const groupedSets = groupSetsByWeight(exercise.sets);
+                                                        return (
+                                                            <div key={idx} className="exercise-item">
+                                                                <div className="exercise-name">
+                                                                    {exercise.name}
+                                                                    {exercise.sets.some(s => s.reps === 10 && s.weight_lbs >= 245) && (
+                                                                        <span className="pr-badge">PR</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="sets-container">
+                                                                    {groupedSets.map((group, setIdx) => (
+                                                                        <div key={setIdx} className="set-badge">
+                                                                            <span className="weight">{group.weight_lbs}lbs</span>
+                                                                            {' × '}
+                                                                            {group.reps.length === 1 
+                                                                                ? group.reps[0]
+                                                                                : `(${group.reps.join(', ')})`
+                                                                            }
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {workout.notes && (
+                                                    <div className="workout-notes">
+                                                        "{workout.notes}"
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </section>
+                            </>
+                        )}
+
+                        {currentView === 'exercises' && (
+                            <section>
+                                <h2 className="section-title">YOUR EXERCISES</h2>
+                                <div className="exercise-grid">
+                                    {getExerciseList().map(exercise => (
+                                        <div 
+                                            key={exercise.name} 
+                                            className="exercise-tile"
+                                            onClick={() => {
+                                                setSelectedExercise(exercise.name);
+                                                setCurrentView('detail');
+                                            }}
+                                        >
+                                            <div className="exercise-tile-name">{exercise.name}</div>
+                                            <div className="exercise-tile-stats">
+                                                {exercise.totalWorkouts} workouts<br/>
+                                                {exercise.totalSets} sets
+                                            </div>
+                                            {exercise.bestSet && exercise.bestSet.weight_lbs > 0 && (
+                                                <div className="exercise-tile-pr">
+                                                    {exercise.bestSet.weight_lbs}lbs × {exercise.bestSet.reps}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {currentView === 'detail' && selectedExercise && (
+                            <section>
+                                <button className="back-button" onClick={() => setCurrentView('exercises')}>
+                                    ← Back to Exercises
+                                </button>
+
+                                <div className="detail-header">
+                                    <h2 className="detail-exercise-name">{selectedExercise}</h2>
+                                    <div className="detail-stats-row">
+                                        <div className="stat-box">
+                                            <div className="stat-box-label">Sessions</div>
+                                            <div className="stat-box-value">{getExerciseStats(selectedExercise).sessions}</div>
+                                        </div>
+                                        <div className="stat-box">
+                                            <div className="stat-box-label">Total Sets</div>
+                                            <div className="stat-box-value">{getExerciseStats(selectedExercise).totalSets}</div>
+                                        </div>
+                                        <div className="stat-box">
+                                            <div className="stat-box-label">Max Weight</div>
+                                            <div className="stat-box-value">{getExerciseStats(selectedExercise).maxWeight}lbs</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="time-filter">
+                                    <button 
+                                        className={`filter-btn ${timeFilter === 'all' ? 'active' : ''}`}
+                                        onClick={() => setTimeFilter('all')}
+                                    >
+                                        All Time
+                                    </button>
+                                    <button 
+                                        className={`filter-btn ${timeFilter === 'month' ? 'active' : ''}`}
+                                        onClick={() => setTimeFilter('month')}
+                                    >
+                                        This Month
+                                    </button>
+                                    <button 
+                                        className={`filter-btn ${timeFilter === '3months' ? 'active' : ''}`}
+                                        onClick={() => setTimeFilter('3months')}
+                                    >
+                                        3 Months
+                                    </button>
+                                    <button 
+                                        className={`filter-btn ${timeFilter === '6months' ? 'active' : ''}`}
+                                        onClick={() => setTimeFilter('6months')}
+                                    >
+                                        6 Months
+                                    </button>
+                                    <button 
+                                        className={`filter-btn ${timeFilter === 'year' ? 'active' : ''}`}
+                                        onClick={() => setTimeFilter('year')}
+                                    >
+                                        1 Year
+                                    </button>
+                                </div>
+
+                                <h3 className="section-title">SET HISTORY</h3>
+                                {getFilteredSets(selectedExercise).map((session, idx) => (
+                                    <div key={idx} className="set-history-item">
+                                        <div className="set-history-date">{formatDate(session.date)}</div>
+                                        <div className="set-history-sets">
+                                            {session.sets.map((set, setIdx) => (
+                                                <div key={setIdx} className="set-badge">
+                                                    {set.reps} × <span className="weight">{set.weight_lbs}lbs</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {session.notes && (
+                                            <div className="workout-notes" style={{marginTop: '8px', paddingTop: '8px'}}>
+                                                "{session.notes}"
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </section>
+                        )}
+                    </main>
+
+                    <nav className="bottom-nav">
+                        <button 
+                            className={`nav-item ${currentView === 'log' ? 'active' : ''}`}
+                            onClick={() => setCurrentView('log')}
+                        >
+                            <div className="nav-icon">📝</div>
+                            <div className="nav-label">LOG</div>
+                        </button>
+                        <button 
+                            className={`nav-item ${currentView === 'exercises' ? 'active' : ''}`}
+                            onClick={() => setCurrentView('exercises')}
+                        >
+                            <div className="nav-icon">💪</div>
+                            <div className="nav-label">EXERCISES</div>
+                        </button>
+                    </nav>
+
+                    <div className={`toast ${showToast ? 'show' : ''}`}>
+                        {toastMessage}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+                        <section className="log-section">
+                            <h2 className="section-title">LOG WORKOUT</h2>
+                            
+                            <div className="input-mode-toggle">
+                                <button 
+                                    className={`toggle-btn ${inputMode === 'voice' ? 'active' : ''}`}
+                                    onClick={() => setInputMode('voice')}
+                                >
+                                    🎤 Voice/Text
+                                </button>
+                                <button 
+                                    className={`toggle-btn ${inputMode === 'manual' ? 'active' : ''}`}
+                                    onClick={() => setInputMode('manual')}
+                                >
+                                    ✏️ Manual Entry
+                                </button>
+                            </div>
+
+                            {inputMode === 'voice' ? (
+                                <>
+                                    <div className="voice-input-container">
+                                        <textarea
+                                            className="voice-textarea"
+                                            placeholder="Speak or type your workout... e.g., 'Did bench press 3 sets of 10 reps at 185 pounds, then squats 225 for 12 reps'"
+                                            value={voiceInput}
+                                            onChange={(e) => setVoiceInput(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="button-group">
+                                        <button 
+                                            className="btn btn-secondary" 
+                                            onClick={handleVoiceInput}
+                                            disabled={isLoading}
+                                        >
+                                            🎤 Speak
+                                        </button>
+                                        <button 
+                                            className="btn btn-primary" 
+                                            onClick={handleLogWorkout}
+                                            disabled={isLoading || !voiceInput.trim()}
+                                        >
+                                            {isLoading ? 'Logging...' : '💪 Log Workout'}
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="manual-form">
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Date</label>
+                                            <input 
+                                                type="date" 
+                                                className="form-input"
+                                                value={manualWorkout.date}
+                                                onChange={(e) => setManualWorkout({...manualWorkout, date: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Duration (min)</label>
+                                            <input 
+                                                type="number" 
+                                                className="form-input"
+                                                placeholder="60"
+                                                value={manualWorkout.duration_minutes}
+                                                onChange={(e) => setManualWorkout({...manualWorkout, duration_minutes: e.target.value})}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {manualWorkout.exercises.map((exercise, exerciseIdx) => (
+                                        <div key={exerciseIdx} className="exercise-entry">
+                                            <div className="exercise-entry-header">
+                                                <div className="form-group" style={{marginBottom: 0, flex: 1}}>
+                                                    <label className="form-label">Exercise {exerciseIdx + 1}</label>
+                                                    <input 
+                                                        type="text" 
+                                                        className="form-input"
+                                                        placeholder="e.g., Bench Press"
+                                                        value={exercise.name}
+                                                        onChange={(e) => updateExercise(exerciseIdx, 'name', e.target.value)}
+                                                    />
+                                                </div>
+                                                {manualWorkout.exercises.length > 1 && (
+                                                    <button 
+                                                        className="remove-btn"
+                                                        onClick={() => removeExercise(exerciseIdx)}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {exercise.sets.map((set, setIdx) => (
+                                                <div key={setIdx} className="set-input-row">
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-input"
+                                                        placeholder="Reps"
+                                                        value={set.reps}
+                                                        onChange={(e) => updateSet(exerciseIdx, setIdx, 'reps', e.target.value)}
+                                                    />
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-input"
+                                                        placeholder="Weight (lbs)"
+                                                        value={set.weight_lbs}
+                                                        onChange={(e) => updateSet(exerciseIdx, setIdx, 'weight_lbs', e.target.value)}
+                                                    />
+                                                    {exercise.sets.length > 1 && (
+                                                        <button 
+                                                            className="remove-btn"
+                                                            onClick={() => removeSet(exerciseIdx, setIdx)}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+
+                                            <button 
+                                                className="add-set-btn"
+                                                onClick={() => addSet(exerciseIdx)}
+                                            >
+                                                + Add Set
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    <button className="add-exercise-btn" onClick={addExercise}>
+                                        + Add Exercise
+                                    </button>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Notes (Optional)</label>
+                                        <textarea 
+                                            className="voice-textarea"
+                                            style={{minHeight: '80px'}}
+                                            placeholder="How did it feel? Any PRs?"
+                                            value={manualWorkout.notes}
+                                            onChange={(e) => setManualWorkout({...manualWorkout, notes: e.target.value})}
+                                        />
+                                    </div>
+
+                                    <button 
+                                        className="btn btn-primary" 
+                                        onClick={handleLogWorkout}
+                                        disabled={isLoading}
+                                        style={{width: '100%'}}
+                                    >
+                                        {isLoading ? 'Logging...' : '💪 Log Workout'}
+                                    </button>
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="history-section">
+                            <div className="history-header">
+                                <h2 className="section-title">WORKOUT HISTORY</h2>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className="export-btn" onClick={() => handleExport('json')}>
+                                        JSON
+                                    </button>
+                                    <button className="export-btn" onClick={() => handleExport('csv')}>
+                                        CSV
+                                    </button>
+                                </div>
+                            </div>
+
+                            {workouts.length === 0 ? (
+                                <div className="empty-state">
+                                    <div className="empty-icon">💪</div>
+                                    <p className="empty-text">
+                                        No workouts logged yet.<br />
+                                        Start tracking your gains!
+                                    </p>
+                                </div>
+                            ) : (
+                                workouts.map(workout => (
+                                    <div key={workout.id} className="workout-card">
+                                        <div className="workout-header">
+                                            <span className="workout-date">
+                                                {formatDate(workout.date)}
+                                            </span>
+                                            <span className="workout-duration">
+                                                {workout.duration_minutes} min
+                                            </span>
+                                        </div>
+                                        <div className="exercise-list">
+                                            {workout.exercises.map((exercise, idx) => (
+                                                <div key={idx} className="exercise-item">
+                                                    <div className="exercise-name">
+                                                        {exercise.name}
+                                                        {exercise.sets.some(s => s.reps === 10 && s.weight_lbs >= 245) && (
+                                                            <span className="pr-badge">PR</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="sets-container">
+                                                        {exercise.sets.map((set, setIdx) => (
+                                                            <div key={setIdx} className="set-badge">
+                                                                {set.reps} × <span className="weight">{set.weight_lbs}lbs</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {workout.notes && (
+                                            <div className="workout-notes">
+                                                "{workout.notes}"
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </section>
+                    </main>
+
+                    <div className={`toast ${showToast ? 'show' : ''}`}>
+                        {toastMessage}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
