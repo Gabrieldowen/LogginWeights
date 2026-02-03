@@ -112,7 +112,7 @@ def validate_api_key() -> Tuple[bool, Optional[Tuple[Any, int]]]:
     api_key = get_api_key_from_request()
     
     if not api_key:
-        return False, (jsonify({'error': 'Missing API key. Provide via Authorization header (Bearer token), query parameter, or request body'}), 401)
+        return False, (jsonify({'error': 'Missing API key in Authorization header'}), 401)
     
     if api_key != Config.VITE_API_KEY:
         return False, (jsonify({'error': 'Invalid API key'}), 401)
