@@ -25,7 +25,10 @@ from config import Config
 Config.validate()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adjust as needed)
+# Enable CORS with configurable origins from environment variable
+# CORS_ORIGINS can be a comma-separated list, e.g., "http://localhost:3000,https://myapp.com"
+cors_origins = [origin.strip() for origin in Config.CORS_ORIGINS.split(',')]
+CORS(app, origins=cors_origins)
 
 # ============================================
 # INITIALIZE CLIENTS
@@ -35,7 +38,7 @@ CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adj
 supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
 
 # Initialize Gemini AI
-client = genai.Client()
+client = genai.Client(api_key=Config.GEMINI_API_KEY)
 
 # ============================================
 # GEMINI PROMPT
@@ -117,12 +120,21 @@ def store_workout_in_supabase(workout_data):
         }
         
         workout_response = supabase.table('workouts').insert(workout_insert).execute()
+        
+        if not workout_response.data:
+            raise Exception("Failed to insert workout - no data returned")
+        
         workout_id = workout_response.data[0]['id']
         
         print(f"✓ Created workout ID: {workout_id}")
         
         # Step 2: Insert exercises and sets
         for exercise_idx, exercise in enumerate(workout_data.get('exercises', [])):
+            # Validate exercise has required fields
+            if not exercise.get('name'):
+                print(f"  ⚠ Skipping exercise without name at index {exercise_idx}")
+                continue
+            
             # Insert exercise
             exercise_insert = {
                 'workout_id': workout_id,
@@ -131,12 +143,21 @@ def store_workout_in_supabase(workout_data):
             }
             
             exercise_response = supabase.table('exercises').insert(exercise_insert).execute()
+            
+            if not exercise_response.data:
+                raise Exception(f"Failed to insert exercise '{exercise.get('name', 'unknown')}' - no data returned")
+            
             exercise_id = exercise_response.data[0]['id']
             
             print(f"  ✓ Created exercise: {exercise['name']} (ID: {exercise_id})")
             
             # Insert sets for this exercise
             for set_idx, set_data in enumerate(exercise.get('sets', [])):
+                # Validate set has required fields
+                if 'reps' not in set_data or set_data['reps'] is None:
+                    print(f"    ⚠ Skipping set {set_idx + 1} without reps")
+                    continue
+                
                 set_insert = {
                     'exercise_id': exercise_id,
                     'set_number': set_idx + 1,
@@ -233,14 +254,14 @@ def home():
         'service': 'Iron Track - Workout Logging API',
         'version': '1.0',
         'endpoints': {
-            '/webhook/log-workout': 'POST - Log a workout (requires api_key and text)',
+            '/webhook/log_workout': 'POST - Log a workout (requires api_key and text)',
             '/api/workouts': 'GET - Get all workouts',
             '/api/exercises/<exercise_id>/history': 'GET - Get exercise history by exercise ID',
             '/health': 'GET - Health check'
         },
         'usage': {
             'method': 'POST',
-            'url': '/webhook/log-workout',
+            'url': '/webhook/log_workout',
             'body': {
                 'text': 'Did bench press 3 sets of 10 reps at 185 pounds...',
                 'api_key': 'your-api-key'
@@ -330,22 +351,6 @@ def get_all_workouts():
         
     except Exception as e:
         print(f"Error in get_all_workouts: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-    """
-    Get all workouts from the database
-    """
-    try:
-        # Get request data
-        api_key = request.args.get('api_key')
-        
-        # Check API key
-        if api_key != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
-        
-        # Get all workouts from the database
-        workouts = supabase.table('workouts').select('*').execute()
-        return jsonify(workouts.data), 200
-    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
