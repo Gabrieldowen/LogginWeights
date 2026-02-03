@@ -29,7 +29,7 @@ export const workoutAPI = {
    */
   getWorkouts: async () => {
     try {
-    const response = await apiClient.get(`/api/get_all_workouts?api_key=${API_KEY}`);
+      const response = await apiClient.get(`/api/get_all_workouts?api_key=${API_KEY}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch workouts');

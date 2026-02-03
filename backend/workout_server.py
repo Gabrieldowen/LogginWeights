@@ -248,8 +248,89 @@ def home():
         }
     }), 200
 
+
 @app.route('/api/get_all_workouts', methods=['GET'])
 def get_all_workouts():
+    """
+    Get all workouts with their exercises and sets
+    Uses proper JOIN queries for the relational schema
+    """
+    try:
+        # Get API key from query parameter
+        api_key = request.args.get('api_key')
+        
+        # Check API key
+        if api_key != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+        
+        # Get all workouts ordered by date (newest first)
+        workouts_response = supabase.table('workouts').select('*').order('date', desc=True).execute()
+        
+        if not workouts_response.data:
+            return jsonify([]), 200
+        
+        # Build the complete workout data with exercises and sets
+        workouts_data = []
+        
+        for workout in workouts_response.data:
+            workout_id = workout['id']
+            
+            # Get exercises for this workout
+            exercises_response = supabase.table('exercises')\
+                .select('*')\
+                .eq('workout_id', workout_id)\
+                .order('order_index')\
+                .execute()
+            
+            exercises_data = []
+            total_volume = 0
+            
+            for exercise in exercises_response.data:
+                exercise_id = exercise['id']
+                
+                # Get sets for this exercise
+                sets_response = supabase.table('sets')\
+                    .select('*')\
+                    .eq('exercise_id', exercise_id)\
+                    .order('set_number')\
+                    .execute()
+                
+                sets_data = []
+                for set_item in sets_response.data:
+                    sets_data.append({
+                        'set_number': set_item['set_number'],
+                        'reps': set_item['reps'],
+                        'weight': float(set_item['weight_lbs']) if set_item['weight_lbs'] else 0
+                    })
+                    
+                    # Add to total volume
+                    if set_item['weight_lbs'] and set_item['reps']:
+                        total_volume += float(set_item['weight_lbs']) * set_item['reps']
+                
+                exercises_data.append({
+                    'name': exercise['exercise_name'],
+                    'sets': sets_data
+                })
+            
+            # Build the workout object
+            workout_data = {
+                'id': workout['id'],
+                'date': workout['date'],
+                'created_at': workout['created_at'],
+                'duration_minutes': workout.get('duration_minutes'),
+                'workout_type': workout.get('workout_type', 'strength'),
+                'notes': workout.get('notes'),
+                'exercises': exercises_data,
+                'total_volume': round(total_volume, 2)
+            }
+            
+            workouts_data.append(workout_data)
+        
+        return jsonify(workouts_data), 200
+        
+    except Exception as e:
+        print(f"Error in get_all_workouts: {str(e)}")
+        return jsonify({'error': str(e)}), 500
     """
     Get all workouts from the database
     """
@@ -358,15 +439,11 @@ def get_exercise_history(exercise_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-"""
-Backend Endpoint: Get All Exercises with PRs and History
-Add this to your Flask app.py
-"""
-
 @app.route('/api/get_all_exercises', methods=['GET'])
 def get_all_exercises():
     """
     Get all exercises with their PRs and complete history
+    Uses proper JOIN queries for the relational schema
     """
     try:
         # Get API key from query parameter
@@ -376,121 +453,111 @@ def get_all_exercises():
         if api_key != Config.VITE_API_KEY:
             return jsonify({'error': 'Invalid API key'}), 401
         
-        # Get all workouts from the database
-        workouts = supabase.table('workouts').select('*').execute()
+        # Get all exercises with their sets and workout dates
+        exercises_response = supabase.table('exercises').select('*, workouts!inner(date), sets(*)').execute()
         
-        if not workouts.data:
+        if not exercises_response.data:
             return jsonify([]), 200
         
-        # Dictionary to store exercises: {exercise_name: {pr_info, history}}
+        # Group by exercise name
         exercises_dict = {}
         
-        # Process each workout
-        for workout in workouts.data:
-            workout_date = workout.get('date') or workout.get('created_at')
-            workout_text = workout.get('workout_text', '')
+        for exercise_record in exercises_response.data:
+            exercise_name = exercise_record['exercise_name']
+            workout_date = exercise_record['workouts']['date']
+            sets = exercise_record.get('sets', [])
             
-            # Parse workout text to extract exercises
-            # Expected format: "Exercise Name XxY @ Zlbs" per line
-            lines = workout_text.split('\n')
+            # Initialize exercise if not exists
+            if exercise_name not in exercises_dict:
+                exercises_dict[exercise_name] = {
+                    'name': exercise_name,
+                    'pr_weight': 0,
+                    'pr_date': None,
+                    'history': [],
+                    'session_dates': set()
+                }
             
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
+            # Process each set to find working sets and PRs
+            for set_item in sets:
+                weight = float(set_item['weight_lbs']) if set_item['weight_lbs'] else 0
+                reps = set_item['reps']
                 
-                try:
-                    # Parse line like "Deadlift 3x5 @ 315lbs"
-                    # Split by @ to get exercise info and weight
-                    if '@' not in line:
-                        continue
-                    
-                    parts = line.split('@')
-                    exercise_and_sets = parts[0].strip()
-                    weight_str = parts[1].strip().lower().replace('lbs', '').replace('lb', '').strip()
-                    
-                    # Extract weight
-                    weight = float(weight_str)
-                    
-                    # Extract exercise name and sets/reps
-                    # Format: "Exercise Name 3x5" or "Exercise Name 3 sets of 5 reps"
-                    if 'x' in exercise_and_sets:
-                        # Format: "Deadlift 3x5"
-                        parts = exercise_and_sets.rsplit(' ', 1)
-                        exercise_name = parts[0].strip()
-                        sets_reps = parts[1].strip()
-                        
-                        if 'x' in sets_reps:
-                            sets_str, reps_str = sets_reps.split('x')
-                            sets = int(sets_str)
-                            reps = int(reps_str)
-                        else:
-                            sets = 1
-                            reps = 1
-                    else:
-                        # Fallback: just use the whole thing as exercise name
-                        exercise_name = exercise_and_sets
-                        sets = 1
-                        reps = 1
-                    
-                    # Calculate volume
-                    volume = weight * sets * reps
-                    
-                    # Initialize exercise if not exists
-                    if exercise_name not in exercises_dict:
-                        exercises_dict[exercise_name] = {
-                            'name': exercise_name,
-                            'pr_weight': weight,
-                            'pr_date': workout_date,
-                            'total_sessions': 0,
-                            'history': [],
-                            'session_dates': set()
-                        }
-                    
-                    # Update PR if this weight is higher
-                    if weight > exercises_dict[exercise_name]['pr_weight']:
-                        exercises_dict[exercise_name]['pr_weight'] = weight
-                        exercises_dict[exercise_name]['pr_date'] = workout_date
-                    
-                    # Add to history
-                    exercises_dict[exercise_name]['history'].append({
-                        'date': workout_date,
-                        'sets': sets,
+                # Update PR if this is a heavier working set
+                if weight > exercises_dict[exercise_name]['pr_weight']:
+                    exercises_dict[exercise_name]['pr_weight'] = weight
+                    exercises_dict[exercise_name]['pr_date'] = workout_date
+            
+            # Add this session to history (aggregate sets for this exercise on this date)
+            # First, check if we already have a history entry for this date
+            existing_session = None
+            for session in exercises_dict[exercise_name]['history']:
+                if session['date'] == workout_date:
+                    existing_session = session
+                    break
+            
+            if existing_session:
+                # Update existing session with new sets
+                for set_item in sets:
+                    weight = float(set_item['weight_lbs']) if set_item['weight_lbs'] else 0
+                    reps = set_item['reps']
+                    existing_session['total_sets'] += 1
+                    existing_session['volume'] += weight * reps
+                    existing_session['set_details'].append({
+                        'set_number': set_item['set_number'],
                         'reps': reps,
-                        'weight': weight,
-                        'volume': volume
+                        'weight': weight
                     })
-                    
-                    # Track unique session dates
-                    exercises_dict[exercise_name]['session_dates'].add(workout_date)
-                    
-                except (ValueError, IndexError) as e:
-                    # Skip lines that don't parse correctly
-                    print(f"Could not parse line: {line}, error: {e}")
-                    continue
+            else:
+                # Create new session
+                total_sets = len(sets)
+                total_volume = sum(float(s['weight_lbs'] or 0) * s['reps'] for s in sets)
+                
+                # Get the top working set (highest weight)
+                top_set = max(sets, key=lambda s: float(s['weight_lbs'] or 0), default=None)
+                top_weight = float(top_set['weight_lbs']) if top_set and top_set['weight_lbs'] else 0
+                top_reps = top_set['reps'] if top_set else 0
+                
+                set_details = [{
+                    'set_number': s['set_number'],
+                    'reps': s['reps'],
+                    'weight': float(s['weight_lbs']) if s['weight_lbs'] else 0
+                } for s in sets]
+                
+                exercises_dict[exercise_name]['history'].append({
+                    'date': workout_date,
+                    'total_sets': total_sets,
+                    'weight': top_weight,  # Top working set weight for the chart
+                    'reps': top_reps,      # Reps for that top set
+                    'volume': round(total_volume, 2),
+                    'set_details': set_details
+                })
+                
+                exercises_dict[exercise_name]['session_dates'].add(workout_date)
         
-        # Convert to list and calculate total sessions
+        # Convert to list and finalize
         exercises_list = []
         for exercise_name, exercise_data in exercises_dict.items():
-            exercise_data['total_sessions'] = len(exercise_data['session_dates'])
-            
-            # Remove the session_dates set (not JSON serializable)
-            del exercise_data['session_dates']
-            
             # Sort history by date descending (newest first)
             exercise_data['history'].sort(key=lambda x: x['date'], reverse=True)
             
+            # Calculate total sessions
+            exercise_data['total_sessions'] = len(exercise_data['session_dates'])
+            
+            # Remove session_dates set (not JSON serializable)
+            del exercise_data['session_dates']
+            
             exercises_list.append(exercise_data)
         
-        # Sort exercises alphabetically by name
+        # Sort exercises alphabetically
         exercises_list.sort(key=lambda x: x['name'])
         
         return jsonify(exercises_list), 200
         
     except Exception as e:
         print(f"Error in get_all_exercises: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 # ============================================
 # RUN SERVER
 # ============================================

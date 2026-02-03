@@ -57,31 +57,43 @@ const ExerciseChart = ({ exercise }) => {
       {/* History Table */}
       <div className="mt-6">
         <h4 className="text-lg font-semibold text-dark-text mb-3">Session History</h4>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className="space-y-3 max-h-96 overflow-y-auto">
           {[...exercise.history]
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .map((session, idx) => (
               <div
                 key={idx}
-                className="bg-dark-bg border border-dark-border rounded-lg p-3 flex items-center justify-between"
+                className="bg-dark-bg border border-dark-border rounded-lg p-4"
               >
-                <div>
-                  <p className="text-sm font-medium text-dark-text">
-                    {new Date(session.date).toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </p>
-                  <p className="text-xs text-dark-muted mt-1">
-                    {session.sets} sets × {session.reps} reps
-                  </p>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-medium text-dark-text">
+                      {new Date(session.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-primary">Top: {session.weight} lbs</p>
+                    <p className="text-xs text-dark-muted">{session.volume?.toLocaleString()} lbs total volume</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-primary">{session.weight} lbs</p>
-                  <p className="text-xs text-dark-muted">{session.volume?.toLocaleString()} lbs volume</p>
-                </div>
+                
+                {/* Display individual sets */}
+                {session.set_details && session.set_details.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-dark-border">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {session.set_details.map((set, setIdx) => (
+                        <div key={setIdx} className="text-xs text-dark-muted">
+                          Set {set.set_number}: {set.reps} × {set.weight} lbs
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
         </div>

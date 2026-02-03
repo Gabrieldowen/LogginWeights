@@ -76,24 +76,25 @@ const RecentActivity = ({ workouts, loading }) => {
               )}
             </div>
             
-            <div className="space-y-1">
-              {workout.workout_text ? (
-                // Display the raw workout text split by lines
-                workout.workout_text.split('\n').map((line, idx) => (
-                  line.trim() && (
-                    <div key={idx} className="text-sm text-dark-text">
-                      {line.trim()}
+            <div className="space-y-2">
+              {workout.exercises && workout.exercises.length > 0 ? (
+                // Display exercises with their sets
+                workout.exercises.map((exercise, exIdx) => (
+                  <div key={exIdx} className="mb-2">
+                    <div className="text-sm font-semibold text-dark-text mb-1">
+                      {exercise.name}
                     </div>
-                  )
-                ))
-              ) : workout.exercises?.length > 0 ? (
-                // Display structured exercises if available
-                workout.exercises.map((exercise, idx) => (
-                  <div key={idx} className="text-sm text-dark-text">
-                    <span className="font-medium">{exercise.name}</span>
-                    <span className="text-dark-muted ml-2">
-                      {exercise.sets}x{exercise.reps} @ {exercise.weight}lbs
-                    </span>
+                    <div className="ml-3 space-y-0.5">
+                      {exercise.sets && exercise.sets.length > 0 ? (
+                        exercise.sets.map((set, setIdx) => (
+                          <div key={setIdx} className="text-xs text-dark-muted">
+                            Set {set.set_number}: {set.reps} reps @ {set.weight} lbs
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-dark-muted">No set details</div>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
