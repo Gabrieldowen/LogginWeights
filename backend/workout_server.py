@@ -4,6 +4,7 @@ Flask server that receives workout text, processes with Gemini AI, and stores in
 """
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from supabase import create_client, Client
 from google import genai
 import json
@@ -24,6 +25,7 @@ from config import Config
 Config.validate()
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adjust as needed)
 
 # ============================================
 # INITIALIZE CLIENTS
@@ -155,7 +157,7 @@ def store_workout_in_supabase(workout_data):
 # API ENDPOINTS
 # ============================================
 
-@app.route('/webhook/log-workout', methods=['POST'])
+@app.route('/webhook/log_workout', methods=['POST'])
 def log_workout():
     """
     Main endpoint to log a workout
@@ -169,7 +171,7 @@ def log_workout():
             return jsonify({'error': 'No JSON data provided'}), 400
         
         # Check API key
-        if data.get('api_key') != Config.API_KEY:
+        if data.get('api_key') != Config.VITE_API_KEY:
             return jsonify({'error': 'Invalid API key'}), 401
         
         # Get workout text
@@ -246,12 +248,19 @@ def home():
         }
     }), 200
 
-@app.route('/api/workouts', methods=['GET'])
+@app.route('/api/get_all_workouts', methods=['GET'])
 def get_all_workouts():
     """
     Get all workouts from the database
     """
     try:
+        # Get request data
+        api_key = request.args.get('api_key')
+        
+        # Check API key
+        if api_key != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+        
         # Get all workouts from the database
         workouts = supabase.table('workouts').select('*').execute()
         return jsonify(workouts.data), 200
@@ -259,7 +268,7 @@ def get_all_workouts():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/exercises/<int:exercise_id>/history', methods=['GET'])
+@app.route('/api/get_exercise_history/<int:exercise_id>', methods=['GET'])
 def get_exercise_history(exercise_id):
     """
     Get the complete history of an exercise given its ID.
@@ -267,6 +276,13 @@ def get_exercise_history(exercise_id):
     including sets, dates, and workout details.
     """
     try:
+        # Get request data
+        api_key = request.args.get('api_key')
+        
+        # Check API key
+        if api_key != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+        
         # Step 1: Get the exercise by ID to find its name
         exercise_response = supabase.table('exercises').select('exercise_name').eq('id', exercise_id).execute()
         
@@ -342,6 +358,138 @@ def get_exercise_history(exercise_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+"""
+Backend Endpoint: Get All Exercises with PRs and History
+Add this to your Flask app.py
+"""
+
+@app.route('/api/get_all_exercises', methods=['GET'])
+def get_all_exercises():
+    """
+    Get all exercises with their PRs and complete history
+    """
+    try:
+        # Get API key from query parameter
+        api_key = request.args.get('api_key')
+        
+        # Check API key
+        if api_key != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+        
+        # Get all workouts from the database
+        workouts = supabase.table('workouts').select('*').execute()
+        
+        if not workouts.data:
+            return jsonify([]), 200
+        
+        # Dictionary to store exercises: {exercise_name: {pr_info, history}}
+        exercises_dict = {}
+        
+        # Process each workout
+        for workout in workouts.data:
+            workout_date = workout.get('date') or workout.get('created_at')
+            workout_text = workout.get('workout_text', '')
+            
+            # Parse workout text to extract exercises
+            # Expected format: "Exercise Name XxY @ Zlbs" per line
+            lines = workout_text.split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                try:
+                    # Parse line like "Deadlift 3x5 @ 315lbs"
+                    # Split by @ to get exercise info and weight
+                    if '@' not in line:
+                        continue
+                    
+                    parts = line.split('@')
+                    exercise_and_sets = parts[0].strip()
+                    weight_str = parts[1].strip().lower().replace('lbs', '').replace('lb', '').strip()
+                    
+                    # Extract weight
+                    weight = float(weight_str)
+                    
+                    # Extract exercise name and sets/reps
+                    # Format: "Exercise Name 3x5" or "Exercise Name 3 sets of 5 reps"
+                    if 'x' in exercise_and_sets:
+                        # Format: "Deadlift 3x5"
+                        parts = exercise_and_sets.rsplit(' ', 1)
+                        exercise_name = parts[0].strip()
+                        sets_reps = parts[1].strip()
+                        
+                        if 'x' in sets_reps:
+                            sets_str, reps_str = sets_reps.split('x')
+                            sets = int(sets_str)
+                            reps = int(reps_str)
+                        else:
+                            sets = 1
+                            reps = 1
+                    else:
+                        # Fallback: just use the whole thing as exercise name
+                        exercise_name = exercise_and_sets
+                        sets = 1
+                        reps = 1
+                    
+                    # Calculate volume
+                    volume = weight * sets * reps
+                    
+                    # Initialize exercise if not exists
+                    if exercise_name not in exercises_dict:
+                        exercises_dict[exercise_name] = {
+                            'name': exercise_name,
+                            'pr_weight': weight,
+                            'pr_date': workout_date,
+                            'total_sessions': 0,
+                            'history': [],
+                            'session_dates': set()
+                        }
+                    
+                    # Update PR if this weight is higher
+                    if weight > exercises_dict[exercise_name]['pr_weight']:
+                        exercises_dict[exercise_name]['pr_weight'] = weight
+                        exercises_dict[exercise_name]['pr_date'] = workout_date
+                    
+                    # Add to history
+                    exercises_dict[exercise_name]['history'].append({
+                        'date': workout_date,
+                        'sets': sets,
+                        'reps': reps,
+                        'weight': weight,
+                        'volume': volume
+                    })
+                    
+                    # Track unique session dates
+                    exercises_dict[exercise_name]['session_dates'].add(workout_date)
+                    
+                except (ValueError, IndexError) as e:
+                    # Skip lines that don't parse correctly
+                    print(f"Could not parse line: {line}, error: {e}")
+                    continue
+        
+        # Convert to list and calculate total sessions
+        exercises_list = []
+        for exercise_name, exercise_data in exercises_dict.items():
+            exercise_data['total_sessions'] = len(exercise_data['session_dates'])
+            
+            # Remove the session_dates set (not JSON serializable)
+            del exercise_data['session_dates']
+            
+            # Sort history by date descending (newest first)
+            exercise_data['history'].sort(key=lambda x: x['date'], reverse=True)
+            
+            exercises_list.append(exercise_data)
+        
+        # Sort exercises alphabetically by name
+        exercises_list.sort(key=lambda x: x['name'])
+        
+        return jsonify(exercises_list), 200
+        
+    except Exception as e:
+        print(f"Error in get_all_exercises: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # ============================================
 # RUN SERVER

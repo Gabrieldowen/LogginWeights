@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Get base URL from environment variable
+// Get base URL and API key from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
@@ -34,4 +35,4 @@ apiClient.interceptors.response.use(
   }
 );
 
-export { apiClient, API_BASE_URL };
+export { apiClient, API_BASE_URL, API_KEY };

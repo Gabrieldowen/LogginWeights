@@ -8,10 +8,11 @@ cd iron-track-frontend
 npm install
 ```
 
-### 2️⃣ Configure Backend URL
+### 2️⃣ Configure Backend URL & API Key
 Edit `.env` file:
 ```
 VITE_API_BASE_URL=http://localhost:5000
+VITE_API_KEY=your-backend-api-key
 ```
 
 ### 3️⃣ Start Development Server

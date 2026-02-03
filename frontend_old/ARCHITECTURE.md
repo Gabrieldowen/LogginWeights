@@ -169,10 +169,12 @@ The base URL is automatically prepended from `VITE_API_BASE_URL`.
 
 ## 🔒 Security Considerations
 
-- No API keys in frontend code
+- API key stored in environment variables (not in code)
+- No API keys hardcoded in frontend code
 - CORS handled by backend
 - No sensitive data stored in localStorage
 - All environment variables prefixed with `VITE_`
+- API key automatically included in requests via config
 
 ## 📈 Performance Optimizations
 

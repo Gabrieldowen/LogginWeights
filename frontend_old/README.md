@@ -47,7 +47,10 @@ The frontend expects the following Flask endpoints:
 POST /webhook/log_workout
 Content-Type: application/json
 
-Body: { "text": "Deadlift 3x5 @ 315lbs" }
+Body: { 
+  "text": "Deadlift 3x5 @ 315lbs",
+  "api_key": "your-api-key"
+}
 ```
 
 ### 2. Get All Workouts
@@ -102,9 +105,10 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set your backend URL:
+Edit `.env` and set your backend URL and API key:
 ```
 VITE_API_BASE_URL=http://localhost:5000
+VITE_API_KEY=your-backend-api-key
 ```
 
 4. **Start development server**
@@ -148,17 +152,19 @@ All components are built with:
 
 ## 🔧 Configuration
 
-### API Base URL
-The app uses `VITE_API_BASE_URL` environment variable for all API calls. This allows easy deployment:
+### API Base URL & API Key
+The app uses environment variables for all API configuration:
 
 **Development:**
 ```
 VITE_API_BASE_URL=http://localhost:5000
+VITE_API_KEY=your-development-key
 ```
 
 **Production:**
 ```
 VITE_API_BASE_URL=https://api.irontrack.com
+VITE_API_KEY=your-production-key
 ```
 
 ### Customizing Theme

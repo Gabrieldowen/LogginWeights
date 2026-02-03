@@ -22,7 +22,7 @@ class Config:
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
     
     # Webhook Security
-    API_KEY = os.getenv('API_KEY')
+    VITE_API_KEY = os.getenv('VITE_API_KEY')
     
     # Server Configuration (optional, has defaults)
     HOST = os.getenv('HOST', '0.0.0.0')
@@ -39,7 +39,7 @@ class Config:
             'SUPABASE_URL': cls.SUPABASE_URL,
             'SUPABASE_KEY': cls.SUPABASE_KEY,
             'GEMINI_API_KEY': cls.GEMINI_API_KEY,
-            'API_KEY': cls.API_KEY
+            'VITE_API_KEY': cls.VITE_API_KEY
         }
         
         missing = [key for key, value in required.items() if not value]

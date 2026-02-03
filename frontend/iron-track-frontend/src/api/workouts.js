@@ -1,4 +1,4 @@
-import { apiClient } from './config';
+import { apiClient, API_KEY } from './config';
 
 /**
  * Workout API Service
@@ -15,6 +15,7 @@ export const workoutAPI = {
     try {
       const response = await apiClient.post('/webhook/log_workout', {
         text: workoutText,
+        api_key: API_KEY,
       });
       return response.data;
     } catch (error) {
@@ -28,7 +29,7 @@ export const workoutAPI = {
    */
   getWorkouts: async () => {
     try {
-      const response = await apiClient.get('/api/get_all_workouts');
+    const response = await apiClient.get(`/api/get_all_workouts?api_key=${API_KEY}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch workouts');
@@ -42,10 +43,23 @@ export const workoutAPI = {
    */
   getExerciseHistory: async (exerciseName) => {
     try {
-      const response = await apiClient.get(`/api/get_exercise_history/${encodeURIComponent(exerciseName)}`);
+      const response = await apiClient.get(`/api/get_exercise_history/${encodeURIComponent(exerciseName)}?api_key=${API_KEY}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch exercise history');
+    }
+  },
+
+  /**
+   * Fetch all exercises with PRs and history
+   * @returns {Promise} Array of exercises with their data
+   */
+  getAllExercises: async () => {
+    try {
+      const response = await apiClient.get(`/api/get_all_exercises?api_key=${API_KEY}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch exercises');
     }
   },
 };
