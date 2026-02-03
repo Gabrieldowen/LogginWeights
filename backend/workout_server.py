@@ -104,7 +104,7 @@ def get_api_key_from_request() -> Optional[str]:
     return None
 
 
-def validate_api_key() -> Tuple[bool, Optional[Tuple[Any, int]]]:
+def validate_api_key() -> Tuple[bool, Optional[Tuple[Response, int]]]:
     """
     Validate the API key from the request.
     Returns (True, None) if valid, (False, (error_response, status_code)) if invalid.
@@ -251,7 +251,7 @@ def log_workout():
         # Validate API key
         is_valid, error_response = validate_api_key()
         if not is_valid:
-            return error_response  # error_response is already a tuple (response, status_code)
+            return error_response
         
         # Get request data
         data = request.get_json()
