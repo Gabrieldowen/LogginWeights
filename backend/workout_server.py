@@ -232,6 +232,8 @@ def home():
         'version': '1.0',
         'endpoints': {
             '/webhook/log-workout': 'POST - Log a workout (requires api_key and text)',
+            '/api/workouts': 'GET - Get all workouts',
+            '/api/exercises/<exercise_id>/history': 'GET - Get exercise history by exercise ID',
             '/health': 'GET - Health check'
         },
         'usage': {
@@ -243,6 +245,102 @@ def home():
             }
         }
     }), 200
+
+@app.route('/api/workouts', methods=['GET'])
+def get_all_workouts():
+    """
+    Get all workouts from the database
+    """
+    try:
+        # Get all workouts from the database
+        workouts = supabase.table('workouts').select('*').execute()
+        return jsonify(workouts.data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/exercises/<int:exercise_id>/history', methods=['GET'])
+def get_exercise_history(exercise_id):
+    """
+    Get the complete history of an exercise given its ID.
+    Returns all instances of this exercise (by name) across all workouts,
+    including sets, dates, and workout details.
+    """
+    try:
+        # Step 1: Get the exercise by ID to find its name
+        exercise_response = supabase.table('exercises').select('exercise_name').eq('id', exercise_id).execute()
+        
+        if not exercise_response.data:
+            return jsonify({'error': f'Exercise with ID {exercise_id} not found'}), 404
+        
+        exercise_name = exercise_response.data[0]['exercise_name']
+        
+        # Step 2: Get all exercises with the same name, including sets
+        exercises_response = supabase.table('exercises').select('*, sets(*)').eq('exercise_name', exercise_name).execute()
+        
+        if not exercises_response.data:
+            return jsonify({
+                'exercise_id': exercise_id,
+                'exercise_name': exercise_name,
+                'history': []
+            }), 200
+        
+        # Step 3: Get all workout IDs and fetch workout details
+        workout_ids = list(set(ex['workout_id'] for ex in exercises_response.data))
+        workouts_response = supabase.table('workouts').select('*').in_('id', workout_ids).execute()
+        
+        # Create a dictionary for quick workout lookup
+        workouts_dict = {w['id']: w for w in workouts_response.data}
+        
+        # Step 4: Transform the data into a more readable format
+        history = []
+        for exercise in exercises_response.data:
+            workout_id = exercise['workout_id']
+            workout = workouts_dict.get(workout_id, {})
+            sets = exercise.get('sets', [])
+            
+            # Sort sets by set_number
+            sets_sorted = sorted(sets, key=lambda x: x.get('set_number', 0))
+            
+            history_entry = {
+                'exercise_id': exercise['id'],
+                'workout_id': workout_id,
+                'date': workout.get('date'),
+                'workout_type': workout.get('workout_type'),
+                'duration_minutes': workout.get('duration_minutes'),
+                'notes': workout.get('notes'),
+                'sets': sets_sorted,
+                'total_sets': len(sets_sorted),
+                'total_reps': sum(s.get('reps', 0) for s in sets_sorted),
+                'total_volume': sum(s.get('reps', 0) * s.get('weight_lbs', 0) for s in sets_sorted),
+                'max_weight': max((s.get('weight_lbs', 0) for s in sets_sorted), default=0),
+                'max_reps': max((s.get('reps', 0) for s in sets_sorted), default=0)
+            }
+            history.append(history_entry)
+        
+        # Sort history by date (most recent first)
+        history.sort(key=lambda x: x['date'] or '', reverse=True)
+        
+        # Calculate overall statistics
+        all_sets = [s for entry in history for s in entry['sets']]
+        overall_stats = {
+            'total_workouts': len(history),
+            'total_sets': len(all_sets),
+            'total_reps': sum(s.get('reps', 0) for s in all_sets),
+            'total_volume': sum(s.get('reps', 0) * s.get('weight_lbs', 0) for s in all_sets),
+            'max_weight_ever': max((s.get('weight_lbs', 0) for s in all_sets), default=0),
+            'max_reps_ever': max((s.get('reps', 0) for s in all_sets), default=0)
+        }
+        
+        return jsonify({
+            'exercise_id': exercise_id,
+            'exercise_name': exercise_name,
+            'history': history,
+            'statistics': overall_stats
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================
