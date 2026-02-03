@@ -140,8 +140,8 @@ All configuration is in `config.py`. To add new config:
 **"Missing required environment variables"**
 → Copy `.env.template` to `.env` and fill in values
 
-**"Invalid API key"**
-→ Make sure `api_key` in request matches `API_KEY` in `.env`
+**"Invalid API key" or "Missing API key in Authorization header"**
+→ Make sure you're sending the API key in the Authorization header as a Bearer token
 
 **"Cannot connect to database"**
 → Check `SUPABASE_URL` and `SUPABASE_KEY` in `.env`
@@ -153,14 +153,16 @@ See **DOCKER_SETUP.md** for more troubleshooting.
 ### Log a Workout
 
 ```bash
-POST http://localhost:5678/webhook/log-workout
+POST http://localhost:5678/webhook/log_workout
+Authorization: Bearer your-api-key-from-env
 Content-Type: application/json
 
 {
-  "text": "Did bench press 3 sets of 10 reps at 185 pounds",
-  "api_key": "your-api-key-from-env"
+  "text": "Did bench press 3 sets of 10 reps at 185 pounds"
 }
 ```
+
+**Note**: For backward compatibility, the API key can also be provided in the request body as `api_key` or as a query parameter, but using the Authorization header is recommended for security.
 
 ### Health Check
 
