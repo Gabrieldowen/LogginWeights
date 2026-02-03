@@ -3,13 +3,14 @@ Iron Track - Workout Logging Server
 Flask server that receives workout text, processes with Gemini AI, and stores in Supabase
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from supabase import create_client, Client
 from google import genai
 import json
 import os
 from datetime import datetime
+from typing import Dict, Any, Tuple, Optional, List
 
 # Load environment variables from .env file (if running locally)
 try:
@@ -75,7 +76,7 @@ Rules:
 # HELPER FUNCTIONS
 # ============================================
 
-def get_api_key_from_request():
+def get_api_key_from_request() -> Optional[str]:
     """
     Extract API key from request with priority:
     1. Authorization header (Bearer token) - recommended
@@ -103,7 +104,7 @@ def get_api_key_from_request():
     return None
 
 
-def validate_api_key():
+def validate_api_key() -> Tuple[bool, Optional[Tuple[Response, int]]]:
     """
     Validate the API key from the request.
     Returns (True, None) if valid, (False, error_response) if invalid.
@@ -119,9 +120,18 @@ def validate_api_key():
     return True, None
 
 
-def parse_workout_with_gemini(text):
+def parse_workout_with_gemini(text: str) -> Dict[str, Any]:
     """
     Use Gemini AI to parse workout text into structured JSON
+    
+    Args:
+        text: Raw workout description text
+        
+    Returns:
+        Dict containing parsed workout data with date, exercises, and sets
+        
+    Raises:
+        Exception: If Gemini API call fails or response cannot be parsed
     """
     today = datetime.now().strftime("%Y-%m-%d")
     prompt = GEMINI_PROMPT.format(text=text, today=today)
@@ -149,10 +159,18 @@ def parse_workout_with_gemini(text):
         raise Exception(f"Failed to parse workout with Gemini: {str(e)}")
 
 
-def store_workout_in_supabase(workout_data):
+def store_workout_in_supabase(workout_data: Dict[str, Any]) -> int:
     """
     Store parsed workout data in Supabase database
-    Returns the created workout ID
+    
+    Args:
+        workout_data: Dict containing workout date, exercises, sets, and metadata
+        
+    Returns:
+        The created workout ID
+        
+    Raises:
+        Exception: If database operations fail
     """
     try:
         # Step 1: Insert workout
