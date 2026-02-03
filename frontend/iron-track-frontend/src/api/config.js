@@ -4,11 +4,18 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
+// Warn if API key is missing
+if (!API_KEY) {
+  console.warn('Warning: VITE_API_KEY is not set. API requests will fail authentication.');
+}
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // Add Authorization header with Bearer token for API authentication
+    ...(API_KEY && { 'Authorization': `Bearer ${API_KEY}` }),
   },
   timeout: 10000, // 10 second timeout
 });

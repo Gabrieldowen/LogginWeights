@@ -29,6 +29,9 @@ class Config:
     PORT = int(os.getenv('PORT', 5678))
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
+    # CORS Configuration (optional, defaults to localhost:3000)
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000')
+    
     @classmethod
     def validate(cls):
         """
