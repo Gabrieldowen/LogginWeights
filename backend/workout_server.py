@@ -104,18 +104,18 @@ def get_api_key_from_request() -> Optional[str]:
     return None
 
 
-def validate_api_key() -> Tuple[bool, Optional[Tuple[Response, int]]]:
+def validate_api_key() -> Tuple[bool, Optional[Tuple[Any, int]]]:
     """
     Validate the API key from the request.
-    Returns (True, None) if valid, (False, error_response) if invalid.
+    Returns (True, None) if valid, (False, (error_response, status_code)) if invalid.
     """
     api_key = get_api_key_from_request()
     
     if not api_key:
-        return False, jsonify({'error': 'Missing API key. Provide via Authorization header (Bearer token), query parameter, or request body'}), 401
+        return False, (jsonify({'error': 'Missing API key. Provide via Authorization header (Bearer token), query parameter, or request body'}), 401)
     
     if api_key != Config.VITE_API_KEY:
-        return False, jsonify({'error': 'Invalid API key'}), 401
+        return False, (jsonify({'error': 'Invalid API key'}), 401)
     
     return True, None
 
@@ -251,7 +251,7 @@ def log_workout():
         # Validate API key
         is_valid, error_response = validate_api_key()
         if not is_valid:
-            return error_response
+            return error_response  # error_response is already a tuple (response, status_code)
         
         # Get request data
         data = request.get_json()
