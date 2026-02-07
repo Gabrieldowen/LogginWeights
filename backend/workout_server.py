@@ -40,34 +40,52 @@ client = genai.Client()
 # ============================================
 # GEMINI PROMPT
 # ============================================
+GEMINI_PROMPT = """Extract workout data and return structured JSON.
 
-GEMINI_PROMPT = """Extract workout data from this voice-to-text transcription and return ONLY valid JSON with no markdown formatting or explanation.
-
-Transcription: "{text}"
-
-Return this exact structure:
-{{
-  "date": "YYYY-MM-DD",
-  "duration_minutes": number,
-  "workout_type": "strength",
-  "exercises": [
-    {{
-      "name": "Exercise Name",
-      "sets": [
-        {{"reps": number, "weight_lbs": number}}
-      ]
-    }}
-  ],
-  "notes": "any additional notes mentioned"
-}}
+Workout data: "{text}"
 
 Rules:
-- If no date mentioned, use today's date: {today}
-- If no weight mentioned for an exercise, set weight_lbs to 0
-- If no duration mentioned, omit duration_minutes
-- Return ONLY the JSON object, no markdown code blocks, no explanation
+- Use today's date ({today}) if no date mentioned
+- Normalize exercise names to Title Case (e.g., "bench press" → "Bench Press")
+- If weight not mentioned, set weight_lbs to 0
+- If duration not mentioned, omit duration_minutes field
+- Extract any additional context as notes
+- For "3x5 @ 315lbs" format: create 3 sets, each with 5 reps at 315lbs
+- For workout type assigne "push" "pull" "legs" "full body" "recovery" based on exercises or notes, default to "strength" if unclear
 """
 
+response_schema = {
+    "type": "OBJECT",
+    "properties": {
+        "date": {"type": "STRING"},
+        "duration_minutes": {"type": "INTEGER", "nullable": True},
+        "workout_type": {"type": "STRING"},
+        "exercises": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING"},
+                    "sets": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "set_number": {"type": "INTEGER"},
+                                "reps": {"type": "INTEGER"},
+                                "weight_lbs": {"type": "NUMBER"}
+                            },
+                            "required": ["set_number", "reps", "weight_lbs"]
+                        }
+                    }
+                },
+                "required": ["name", "sets"]
+            }
+        },
+        "notes": {"type": "STRING", "nullable": True}
+    },
+    "required": ["date", "workout_type", "exercises"]
+}
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
@@ -82,7 +100,9 @@ def parse_workout_with_gemini(text):
     try:
         response = client.models.generate_content(
             model="gemini-3-flash-preview",
-            contents=prompt
+            contents=prompt,
+            config={ "response_mime_type": "application/json", 
+                     "response_schema": response_schema }
             )
         result_text = response.text.strip()
         
@@ -126,14 +146,14 @@ def store_workout_in_supabase(workout_data):
             # Insert exercise
             exercise_insert = {
                 'workout_id': workout_id,
-                'exercise_name': exercise['name'],
+                'exercise_name': exercise['name'].strip().title(),
                 'order_index': exercise_idx
             }
             
             exercise_response = supabase.table('exercises').insert(exercise_insert).execute()
             exercise_id = exercise_response.data[0]['id']
             
-            print(f"  ✓ Created exercise: {exercise['name']} (ID: {exercise_id})")
+            print(f"  ✓ Created exercise: {exercise['name'].strip().title()} (ID: {exercise_id})")
             
             # Insert sets for this exercise
             for set_idx, set_data in enumerate(exercise.get('sets', [])):
