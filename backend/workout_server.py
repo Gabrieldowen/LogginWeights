@@ -124,24 +124,37 @@ def parse_workout_with_gemini(text):
 
 def store_workout_in_supabase(workout_data):
     """
-    Store parsed workout data in Supabase database
-    Returns the created workout ID
+    Store parsed workout data in Supabase database.
+    If a workout exists for the same date, adds exercises to it.
+    Returns the workout ID (existing or new).
     """
     try:
-        # Step 1: Insert workout
-        workout_insert = {
-            'date': workout_data['date'],
-            'duration_minutes': workout_data.get('duration_minutes'),
-            'workout_type': workout_data.get('workout_type', 'strength'),
-            'notes': workout_data.get('notes', '')
-        }
+        workout_date = workout_data['date']
         
-        workout_response = supabase.table('workouts').insert(workout_insert).execute()
-        workout_id = workout_response.data[0]['id']
+        # Step 1: Check if workout already exists for this date
+        existing_workout = supabase.table('workouts')\
+            .select('id')\
+            .eq('date', workout_date)\
+            .execute()
         
-        print(f"✓ Created workout ID: {workout_id}")
+        if existing_workout.data and len(existing_workout.data) > 0:
+            # Use existing workout
+            workout_id = existing_workout.data[0]['id']
+            print(f"✓ Adding to existing workout ID: {workout_id} on {workout_date}")
+        else:
+            # Create new workout
+            workout_insert = {
+                'date': workout_date,
+                'duration_minutes': workout_data.get('duration_minutes'),
+                'workout_type': workout_data.get('workout_type', 'strength'),
+                'notes': workout_data.get('notes', '')
+            }
+            
+            workout_response = supabase.table('workouts').insert(workout_insert).execute()
+            workout_id = workout_response.data[0]['id']
+            print(f"✓ Created new workout ID: {workout_id} on {workout_date}")
         
-        # Step 2: Insert exercises and sets
+        # Step 2: Insert exercises and sets (same logic for new or existing workouts)
         for exercise_idx, exercise in enumerate(workout_data.get('exercises', [])):
             # Insert exercise
             exercise_insert = {
@@ -170,8 +183,8 @@ def store_workout_in_supabase(workout_data):
         return workout_id
         
     except Exception as e:
-        raise Exception(f"Failed to store workout in database: {str(e)}")
-
+        print(f"❌ ERROR storing workout: {str(e)}")
+        raise
 
 # ============================================
 # API ENDPOINTS
@@ -209,7 +222,11 @@ def log_workout():
         print(f"✓ Parsed workout data:")
         print(json.dumps(workout_data, indent=2))
         
+
         # Step 2: Store in Supabase
+       
+        
+ 
         print("\n💾 Storing in database...")
         workout_id = store_workout_in_supabase(workout_data)
         
