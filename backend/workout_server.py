@@ -3,13 +3,14 @@ Iron Track - Workout Logging Server
 Flask server that receives workout text, processes with Gemini AI, and stores in Supabase
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from supabase import create_client, Client
 from google import genai
 import json
 import os
 from datetime import datetime
+from typing import Dict, Any, Tuple, Optional, List
 
 # Load environment variables from .env file (if running locally)
 try:
@@ -25,7 +26,10 @@ from config import Config
 Config.validate()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adjust as needed)
+# Enable CORS with configurable origins from environment variable
+# CORS_ORIGINS can be a comma-separated list, e.g., "http://localhost:3000,https://myapp.com"
+cors_origins = [origin.strip() for origin in Config.CORS_ORIGINS.split(',')]
+CORS(app, origins=cors_origins)
 
 # ============================================
 # INITIALIZE CLIENTS
@@ -35,7 +39,7 @@ CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adj
 supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
 
 # Initialize Gemini AI
-client = genai.Client()
+client = genai.Client(api_key=Config.GEMINI_API_KEY)
 
 # ============================================
 # GEMINI PROMPT
@@ -90,9 +94,62 @@ response_schema = {
 # HELPER FUNCTIONS
 # ============================================
 
-def parse_workout_with_gemini(text):
+def get_api_key_from_request() -> Optional[str]:
+    """
+    Extract API key from request with priority:
+    1. Authorization header (Bearer token) - recommended
+    2. Query parameter (backward compatibility)
+    3. Request body (backward compatibility for POST)
+    
+    Returns the API key or None if not found.
+    """
+    # Try Authorization header first (best practice)
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        return auth_header.replace('Bearer ', '').strip()
+    
+    # Fall back to query parameter (for backward compatibility)
+    api_key = request.args.get('api_key')
+    if api_key:
+        return api_key
+    
+    # Fall back to request body for POST requests (backward compatibility)
+    if request.method == 'POST' and request.is_json:
+        data = request.get_json()
+        if data and data.get('api_key'):
+            return data.get('api_key')
+    
+    return None
+
+
+def validate_api_key() -> Tuple[bool, Optional[Tuple[Response, int]]]:
+    """
+    Validate the API key from the request.
+    Returns (True, None) if valid, (False, (error_response, status_code)) if invalid.
+    """
+    api_key = get_api_key_from_request()
+    
+    if not api_key:
+        return False, (jsonify({'error': 'Missing API key in Authorization header'}), 401)
+    
+    if api_key != Config.VITE_API_KEY:
+        return False, (jsonify({'error': 'Invalid API key'}), 401)
+    
+    return True, None
+
+
+def parse_workout_with_gemini(text: str) -> Dict[str, Any]:
     """
     Use Gemini AI to parse workout text into structured JSON
+    
+    Args:
+        text: Raw workout description text
+        
+    Returns:
+        Dict containing parsed workout data with date, exercises, and sets
+        
+    Raises:
+        Exception: If Gemini API call fails or response cannot be parsed
     """
     today = datetime.now().strftime("%Y-%m-%d")
     prompt = GEMINI_PROMPT.format(text=text, today=today)
@@ -122,10 +179,18 @@ def parse_workout_with_gemini(text):
         raise Exception(f"Failed to parse workout with Gemini: {str(e)}")
 
 
-def store_workout_in_supabase(workout_data):
+def store_workout_in_supabase(workout_data: Dict[str, Any]) -> int:
     """
     Store parsed workout data in Supabase database
-    Returns the created workout ID
+    
+    Args:
+        workout_data: Dict containing workout date, exercises, sets, and metadata
+        
+    Returns:
+        The created workout ID
+        
+    Raises:
+        Exception: If database operations fail
     """
     try:
         # Step 1: Insert workout
@@ -137,12 +202,21 @@ def store_workout_in_supabase(workout_data):
         }
         
         workout_response = supabase.table('workouts').insert(workout_insert).execute()
+        
+        if not workout_response.data:
+            raise Exception("Failed to insert workout - no data returned")
+        
         workout_id = workout_response.data[0]['id']
         
         print(f"✓ Created workout ID: {workout_id}")
         
         # Step 2: Insert exercises and sets
         for exercise_idx, exercise in enumerate(workout_data.get('exercises', [])):
+            # Validate exercise has required fields
+            if not exercise.get('name'):
+                print(f"  ⚠ Skipping exercise without name at index {exercise_idx}")
+                continue
+            
             # Insert exercise
             exercise_insert = {
                 'workout_id': workout_id,
@@ -151,12 +225,21 @@ def store_workout_in_supabase(workout_data):
             }
             
             exercise_response = supabase.table('exercises').insert(exercise_insert).execute()
+            
+            if not exercise_response.data:
+                raise Exception(f"Failed to insert exercise '{exercise.get('name', 'unknown')}' - no data returned")
+            
             exercise_id = exercise_response.data[0]['id']
             
             print(f"  ✓ Created exercise: {exercise['name'].strip().title()} (ID: {exercise_id})")
             
             # Insert sets for this exercise
             for set_idx, set_data in enumerate(exercise.get('sets', [])):
+                # Validate set has required fields
+                if 'reps' not in set_data or set_data['reps'] is None:
+                    print(f"    ⚠ Skipping set {set_idx + 1} without reps")
+                    continue
+                
                 set_insert = {
                     'exercise_id': exercise_id,
                     'set_number': set_idx + 1,
@@ -181,18 +264,20 @@ def store_workout_in_supabase(workout_data):
 def log_workout():
     """
     Main endpoint to log a workout
-    Expects JSON: {"text": "workout description", "api_key": "your-key"}
+    Expects JSON: {"text": "workout description"}
+    API key should be provided via Authorization header (Bearer token) or in request body for backward compatibility
     """
     try:
+        # Validate API key
+        is_valid, error_response = validate_api_key()
+        if not is_valid:
+            return error_response
+        
         # Get request data
         data = request.get_json()
         
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
-        
-        # Check API key
-        if data.get('api_key') != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
         
         # Get workout text
         workout_text = data.get('text', '').strip()
@@ -252,18 +337,27 @@ def home():
     return jsonify({
         'service': 'Iron Track - Workout Logging API',
         'version': '1.0',
+        'authentication': {
+            'method': 'Bearer token in Authorization header (recommended)',
+            'header': 'Authorization: Bearer YOUR_API_KEY',
+            'backward_compatibility': 'Query parameter or request body also supported'
+        },
         'endpoints': {
-            '/webhook/log-workout': 'POST - Log a workout (requires api_key and text)',
-            '/api/workouts': 'GET - Get all workouts',
-            '/api/exercises/<exercise_id>/history': 'GET - Get exercise history by exercise ID',
+            '/webhook/log_workout': 'POST - Log a workout (requires Authorization header and text in body)',
+            '/api/get_all_workouts': 'GET - Get all workouts (requires Authorization header)',
+            '/api/get_all_exercises': 'GET - Get all exercises with history (requires Authorization header)',
+            '/api/get_exercise_history/<exercise_id>': 'GET - Get exercise history by ID (requires Authorization header)',
             '/health': 'GET - Health check'
         },
         'usage': {
             'method': 'POST',
-            'url': '/webhook/log-workout',
+            'url': '/webhook/log_workout',
+            'headers': {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer YOUR_API_KEY'
+            },
             'body': {
-                'text': 'Did bench press 3 sets of 10 reps at 185 pounds...',
-                'api_key': 'your-api-key'
+                'text': 'Did bench press 3 sets of 10 reps at 185 pounds...'
             }
         }
     }), 200
@@ -274,14 +368,13 @@ def get_all_workouts():
     """
     Get all workouts with their exercises and sets
     Uses proper JOIN queries for the relational schema
+    API key should be provided via Authorization header (Bearer token)
     """
     try:
-        # Get API key from query parameter
-        api_key = request.args.get('api_key')
-        
-        # Check API key
-        if api_key != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
+        # Validate API key
+        is_valid, error_response = validate_api_key()
+        if not is_valid:
+            return error_response
         
         # Get all workouts ordered by date (newest first)
         workouts_response = supabase.table('workouts').select('*').order('date', desc=True).execute()
@@ -351,22 +444,6 @@ def get_all_workouts():
     except Exception as e:
         print(f"Error in get_all_workouts: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    """
-    Get all workouts from the database
-    """
-    try:
-        # Get request data
-        api_key = request.args.get('api_key')
-        
-        # Check API key
-        if api_key != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
-        
-        # Get all workouts from the database
-        workouts = supabase.table('workouts').select('*').execute()
-        return jsonify(workouts.data), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/get_exercise_history/<int:exercise_id>', methods=['GET'])
@@ -375,14 +452,13 @@ def get_exercise_history(exercise_id):
     Get the complete history of an exercise given its ID.
     Returns all instances of this exercise (by name) across all workouts,
     including sets, dates, and workout details.
+    API key should be provided via Authorization header (Bearer token)
     """
     try:
-        # Get request data
-        api_key = request.args.get('api_key')
-        
-        # Check API key
-        if api_key != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
+        # Validate API key
+        is_valid, error_response = validate_api_key()
+        if not is_valid:
+            return error_response
         
         # Step 1: Get the exercise by ID to find its name
         exercise_response = supabase.table('exercises').select('exercise_name').eq('id', exercise_id).execute()
@@ -464,14 +540,13 @@ def get_all_exercises():
     """
     Get all exercises with their PRs and complete history
     Uses proper JOIN queries for the relational schema
+    API key should be provided via Authorization header (Bearer token)
     """
     try:
-        # Get API key from query parameter
-        api_key = request.args.get('api_key')
-        
-        # Check API key
-        if api_key != Config.VITE_API_KEY:
-            return jsonify({'error': 'Invalid API key'}), 401
+        # Validate API key
+        is_valid, error_response = validate_api_key()
+        if not is_valid:
+            return error_response
         
         # Get all exercises with their sets and workout dates
         exercises_response = supabase.table('exercises').select('*, workouts!inner(date), sets(*)').execute()
