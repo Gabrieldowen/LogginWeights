@@ -9,7 +9,7 @@ gunicorn==21.2.0
 supabase==2.3.4
 
 # Google Generative AI (Gemini)
-google-generativeai==0.3.2
+google-generativeai
 
 # Environment Variables
 python-dotenv==1.0.0
