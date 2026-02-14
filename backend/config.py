@@ -26,7 +26,7 @@ class Config:
     
     # Server Configuration (optional, has defaults)
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5678))
+    PORT = int(os.environ.get('PORT', 5000))
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
     @classmethod

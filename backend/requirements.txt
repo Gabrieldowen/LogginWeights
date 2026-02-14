@@ -1,0 +1,24 @@
+# Flask Framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Production WSGI Server
+gunicorn==21.2.0
+
+# Supabase Client
+supabase==2.3.4
+
+# Google Generative AI (Gemini)
+google-generativeai==0.3.2
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Timezone Support
+pytz==2024.1
+
+# HTTP Requests (if needed)
+requests==2.31.0
+
+# Date/Time utilities
+python-dateutil==2.8.2
