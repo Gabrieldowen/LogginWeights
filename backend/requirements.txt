@@ -1,6 +1,3 @@
-# Python Version
-python==3.11.9
-
 # Google Generative AI (Gemini)
 google-generativeai==0.3.2
 
