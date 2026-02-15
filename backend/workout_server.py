@@ -25,8 +25,15 @@ from config import Config
 Config.validate()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])  # Enable CORS for all origins (adjust as needed)
-
+CORS(app, 
+     origins=[
+         "http://localhost:3000",
+         "https://loggin-weights.vercel.app"
+     ],
+     allow_headers=["Content-Type"],
+     methods=["GET", "POST", "OPTIONS"],
+     supports_credentials=False
+)
 # ============================================
 # INITIALIZE CLIENTS
 # ============================================
