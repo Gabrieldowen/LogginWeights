@@ -26,10 +26,14 @@ Config.validate()
 
 app = Flask(__name__)
 CORS(app, 
-     origins=[
-         "http://localhost:3000",
-         "https://loggin-weights.vercel.app"
-     ],
+     resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",
+                "https://loggin-weights.vercel.app"
+            ]
+        }
+     },
      allow_headers=["Content-Type"],
      methods=["GET", "POST", "OPTIONS"],
      supports_credentials=False
