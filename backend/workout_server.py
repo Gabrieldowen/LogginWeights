@@ -46,7 +46,7 @@ CORS(app,
 supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
 
 # Initialize Gemini AI
-client = genai.Client(Config.GEMINI_API_KEY)
+client = genai.Client()
 
 
 # ============================================
