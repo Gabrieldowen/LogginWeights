@@ -42,7 +42,7 @@ CORS(app,
 supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
 
 # Initialize Gemini AI
-genai.configure(api_key=Config.GEMINI_API_KEY)
+client = genai.Client(Config.GEMINI_API_KEY)
 
 
 # ============================================
@@ -106,15 +106,14 @@ def parse_workout_with_gemini(text):
     prompt = GEMINI_PROMPT.format(text=text, today=today)
     
     try:
-        model = genai.GenerativeModel(
-            model_name='gemini-3-flash-preview',  # or whatever model you're using
-            generation_config={
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=prompt,
+            config={
                 "response_mime_type": "application/json",
                 "response_schema": response_schema
             }
         )
-        
-        response = model.generate_content(prompt)
         result_text = response.text.strip()
         
         # Remove markdown code blocks if present
