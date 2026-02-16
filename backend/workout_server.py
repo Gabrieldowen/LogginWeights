@@ -6,7 +6,7 @@ Flask server that receives workout text, processes with Gemini AI, and stores in
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from supabase import create_client, Client
-from google import genai   
+import google.genai as genai  
 import json
 import os
 from datetime import datetime
