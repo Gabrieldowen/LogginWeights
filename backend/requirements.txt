@@ -1,8 +1,5 @@
 # Google Generative AI (Gemini)
-google-api-core==2.15.0
-google-auth==2.26.2
-protobuf==4.25.2
-google-generativeai==0.8.3
+google-genai==0.8.3
 
 # Flask Framework
 Flask==3.0.0
