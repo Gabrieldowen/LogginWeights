@@ -99,6 +99,19 @@ const Analytics = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Right Content - Chart and History */}
+        <div className="lg:col-span-2">
+          {selectedExercise ? (
+            <ExerciseChart exercise={selectedExercise} />
+          ) : (
+            <Card>
+              <div className="text-center py-12">
+                <BarChart3 size={64} className="mx-auto text-dark-muted mb-4" />
+                <p className="text-dark-muted">Select an exercise to view progress</p>
+              </div>
+            </Card>
+          )}
+        </div>
         {/* Left Sidebar - Exercise Cards */}
         <div className="lg:col-span-1">
           <Card title="Exercises" subtitle={`${exercises.length} tracked movements`}>
@@ -115,19 +128,6 @@ const Analytics = () => {
           </Card>
         </div>
 
-        {/* Right Content - Chart and History */}
-        <div className="lg:col-span-2">
-          {selectedExercise ? (
-            <ExerciseChart exercise={selectedExercise} />
-          ) : (
-            <Card>
-              <div className="text-center py-12">
-                <BarChart3 size={64} className="mx-auto text-dark-muted mb-4" />
-                <p className="text-dark-muted">Select an exercise to view progress</p>
-              </div>
-            </Card>
-          )}
-        </div>
       </div>
     </div>
   );
