@@ -4,12 +4,10 @@ import Card from './Card';
 
 const ExerciseChart = ({ exercise }) => {
 
-  // Epley formula
   const calculateE1RM = (weight, reps) => {
     return weight * (1 + reps / 30);
   };
 
-  // Build chart data
   const chartData = [...exercise.history]
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .map((session) => {
@@ -21,7 +19,6 @@ const ExerciseChart = ({ exercise }) => {
           if (est > bestE1RM) bestE1RM = est;
         });
       } else {
-        // fallback if no set details
         bestE1RM = calculateE1RM(session.weight, 1);
       }
 
@@ -31,6 +28,15 @@ const ExerciseChart = ({ exercise }) => {
         e1RM: Math.round(bestE1RM),
       };
     });
+
+  // 🔹 Dynamic Y-axis scaling
+  const e1RMValues = chartData.map(d => d.e1RM);
+  const min = Math.min(...e1RMValues);
+  const max = Math.max(...e1RMValues);
+
+  const padding = (max - min) * 0.05 || 5; // fallback if only 1 data point
+  const yMin = Math.floor(min - padding);
+  const yMax = Math.ceil(max + padding);
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -52,6 +58,7 @@ const ExerciseChart = ({ exercise }) => {
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: '12px' }} />
             <YAxis
+              domain={[yMin, yMax]}
               stroke="#94a3b8"
               style={{ fontSize: '12px' }}
               label={{ value: 'Estimated 1RM (lbs)', angle: -90, position: 'insideLeft', fill: '#94a3b8' }}
