@@ -64,6 +64,7 @@ Rules:
 - Extract any additional context as notes
 - For "3x5 @ 315lbs" format: create 3 sets, each with 5 reps at 315lbs
 - For workout type assigne "push" "pull" "legs" "full body" "recovery" based on exercises or notes, default to "strength" if unclear
+- If only given a single number its reps for the same exercise and weight as the previous set. If there is no previous set, set as unknown. 
 """
 
 response_schema = {
@@ -208,7 +209,9 @@ def store_workout_in_supabase(workout_data):
 def log_workout():
     """
     Main endpoint to log a workout
-    Expects JSON: {"text": "workout description", "api_key": "your-key"}
+    Accepts:
+    - Text entry: {"text": "workout description", "api_key": "your-key"}
+    - Manual entry: {"date": "...", "exercises": [...], "api_key": "your-key"}
     """
     try:
         # Get request data
@@ -221,26 +224,39 @@ def log_workout():
         if data.get('api_key') != Config.VITE_API_KEY:
             return jsonify({'error': 'Invalid API key'}), 401
         
-        # Get workout text
-        workout_text = data.get('text', '').strip()
-        if not workout_text:
-            return jsonify({'error': 'No workout text provided'}), 400
-        
         print(f"\n{'='*60}")
-        print(f"📝 Processing workout: {workout_text[:100]}...")
-        print(f"{'='*60}")
         
-        # Step 1: Parse workout with Gemini
-        print("\n🤖 Parsing with Gemini AI...")
-        workout_data = parse_workout_with_gemini(workout_text)
-        print(f"✓ Parsed workout data:")
-        print(json.dumps(workout_data, indent=2))
+        # Check if this is TEXT ENTRY or MANUAL ENTRY
+        if 'text' in data:
+            # TEXT ENTRY - needs Gemini parsing
+            workout_text = data.get('text', '').strip()
+            if not workout_text:
+                return jsonify({'error': 'No workout text provided'}), 400
+            
+            print(f"📝 Processing TEXT entry: {workout_text[:100]}...")
+            print(f"{'='*60}")
+            
+            # Step 1: Parse workout with Gemini
+            print("\n🤖 Parsing with Gemini AI...")
+            workout_data = parse_workout_with_gemini(workout_text)
+            print(f"✓ Parsed workout data:")
+            print(json.dumps(workout_data, indent=2))
+        else:
+            # MANUAL ENTRY - already structured
+            print(f"📝 Processing MANUAL entry")
+            print(f"{'='*60}")
+            
+            workout_data = {
+                'date': data.get('date'),
+                'duration_minutes': data.get('duration_minutes'),
+                'workout_type': data.get('workout_type', 'strength'),
+                'notes': data.get('notes'),
+                'exercises': data.get('exercises', [])
+            }
+            print(f"✓ Manual workout data:")
+            print(json.dumps(workout_data, indent=2))
         
-
-        # Step 2: Store in Supabase
-       
-        
- 
+        # Step 2: Store in Supabase (same for both)
         print("\n💾 Storing in database...")
         workout_id = store_workout_in_supabase(workout_data)
         
@@ -261,8 +277,6 @@ def log_workout():
             'success': False,
             'error': str(e)
         }), 500
-
-
 @app.route('/health', methods=['GET'])
 def health_check():
     """

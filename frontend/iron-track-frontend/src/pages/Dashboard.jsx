@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import WorkoutLogger from '../components/WorkoutLogger';
+import WorkoutManualEntry from '../components/WorkoutManualEntry';
 import RecentActivity from '../components/RecentActivity';
 import { workoutAPI } from '../api/workouts';
 
@@ -39,6 +40,9 @@ const Dashboard = () => {
         {/* Left Column - Workout Logger */}
         <div>
           <WorkoutLogger onWorkoutLogged={handleWorkoutLogged} />
+        </div>
+        <div>
+          <WorkoutManualEntry onWorkoutSaved={handleWorkoutLogged} />
         </div>
 
         {/* Right Column - Recent Activity */}
