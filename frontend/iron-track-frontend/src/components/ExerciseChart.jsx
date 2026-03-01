@@ -29,6 +29,9 @@ const ExerciseChart = ({ exercise }) => {
       };
     });
 
+  // hover highlighting
+  const [activeDate, setActiveDate] = React.useState(null);
+
   // 🔹 Dynamic Y-axis scaling
   const e1RMValues = chartData.map(d => d.e1RM);
   const min = Math.min(...e1RMValues);
@@ -54,7 +57,14 @@ const ExerciseChart = ({ exercise }) => {
     <Card title={`${exercise.name} Strength (e1RM)`} subtitle="Estimated 1RM over time">
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}  
+            onMouseMove={(state) => {
+              if (state?.activePayload?.length) {
+                  setActiveDate(state.activePayload[0].payload.fullDate);
+                }
+              }}
+              onMouseLeave={() => setActiveDate(null)}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: '12px' }} />
             <YAxis
@@ -84,7 +94,13 @@ const ExerciseChart = ({ exercise }) => {
             .map((session, idx) => (
               <div
                 key={idx}
-                className="bg-dark-bg border border-dark-border rounded-lg p-4"
+                className={`bg-dark-bg border rounded-lg p-4 transition-all
+                  ${
+                    activeDate === session.date
+                      ? 'border-primary ring-2 ring-primary'
+                      : 'border-dark-border'
+                  }
+                `}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div>
