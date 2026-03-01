@@ -1,14 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Trash2, Save, Dumbbell, X } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { workoutAPI } from '../api/workouts';
 
-const WorkoutManualEntry = ({ onWorkoutSaved }) => {
+const WorkoutManualEntry = ({ 
+  onWorkoutSaved,
+  initialData = null,
+  mode = "create"
+}) => {
   const [exercises, setExercises] = useState([]);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+  if (!initialData) return;
+
+  setExercises(
+    initialData.exercises.map((ex) => ({
+      id: Date.now() + Math.random(),
+      name: ex.name,
+      sets: ex.sets.map((set) => ({
+        id: Date.now() + Math.random(),
+        reps: set.reps,
+        weight: set.weight_lbs ?? set.weight
+      })),
+    }))
+  );
+
+  setNotes(initialData.notes || '');
+}, [initialData]);
 
   const addExercise = () => {
     if (!newExerciseName.trim()) return;
@@ -116,7 +138,11 @@ const WorkoutManualEntry = ({ onWorkoutSaved }) => {
         })),
       };
 
-      await workoutAPI.logManualWorkout(workoutData);
+      if (mode === "edit" && initialData?.id) {
+        await workoutAPI.updateWorkout(initialData.id, workoutData);
+      } else {
+        await workoutAPI.logManualWorkout(workoutData);
+      }
 
       // Reset form
       setExercises([]);

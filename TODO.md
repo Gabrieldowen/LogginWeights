@@ -3,8 +3,7 @@ Things to add.
 2. strava integration
 4. add guide to setup iphone shortcuts
 5. edit workouts
-6. better manual entry
-- put workouts inside of chart as a dropdown
+- analytics shows the full workout
 
 
 Issues
@@ -14,5 +13,7 @@ Issues
 
 
 Done
+6. better manual entry
+- put workouts inside of chart as a dropdown
 3. hookup front end
 1. if adding workouts in seperate prompts make sure they go to the same workout

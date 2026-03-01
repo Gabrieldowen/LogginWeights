@@ -25,15 +25,36 @@ export const workoutAPI = {
 
   logManualWorkout: async (workoutData) => {
   try {
-    const response = await apiClient.post('/webhook/log_workout', {
+      const response = await apiClient.post('/webhook/log_workout', {
+        ...workoutData,
+        api_key: API_KEY,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to log workout');
+    }
+  },
+
+async updateWorkout(id, workoutData) {
+  return fetch(`/update_workout/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(workoutData),
+  });
+},
+
+  updateWorkout: async (id, workoutData) => {
+    try {
+      const response = await apiClient.put(`/api/update_workout/`, {
       ...workoutData,
       api_key: API_KEY,
+      id: id,
     });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || 'Failed to log workout');
-  }
-},
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update workout');
+    }
+  },
 
   /**
    * Fetch all workouts

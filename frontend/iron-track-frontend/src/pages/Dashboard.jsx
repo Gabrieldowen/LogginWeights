@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import WorkoutLogger from '../components/WorkoutLogger';
-import WorkoutManualEntry from '../components/WorkoutManualEntry';
 import RecentActivity from '../components/RecentActivity';
 import { workoutAPI } from '../api/workouts';
+import WorkoutManualEntry from '../components/WorkoutManualEntry';
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [mode, setMode] = useState("create");
 
   const fetchWorkouts = async () => {
     try {
@@ -24,10 +27,11 @@ const Dashboard = () => {
     fetchWorkouts();
   }, []);
 
-  const handleWorkoutLogged = () => {
-    // Refresh the workout list after a new workout is logged
-    fetchWorkouts();
-  };
+const handleWorkoutLogged = () => {
+  fetchWorkouts();
+  setSelectedWorkout(null);
+  setMode("create");
+};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -41,13 +45,24 @@ const Dashboard = () => {
         <div>
           <WorkoutLogger onWorkoutLogged={handleWorkoutLogged} />
         </div>
-        <div>
-          <WorkoutManualEntry onWorkoutSaved={handleWorkoutLogged} />
+         <div>
+          <WorkoutManualEntry
+            mode={mode}
+            initialData={selectedWorkout}
+            onWorkoutSaved={handleWorkoutLogged}
+          />
         </div>
 
         {/* Right Column - Recent Activity */}
         <div>
-          <RecentActivity workouts={workouts} loading={loading} />
+          <RecentActivity
+            workouts={workouts}
+            loading={loading}
+            onEdit={(workout) => {
+              setSelectedWorkout(workout);
+              setMode("edit");
+            }}
+          />
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 import React from 'react';
+import { Pencil } from 'lucide-react';
 import { Calendar, Dumbbell, TrendingUp } from 'lucide-react';
 import Card from './Card';
 
-const RecentActivity = ({ workouts, loading }) => {
+const RecentActivity = ({ workouts, loading, onEdit }) => {
   const formatDate = (dateString) => {
   // Parse as local date to avoid timezone issues
   const [year, month, day] = dateString.split('-');
@@ -60,12 +61,12 @@ const RecentActivity = ({ workouts, loading }) => {
   });
 
   return (
-    <Card title="Recent Activity" subtitle="Your latest 5 workouts">
+    <Card title="Recent Activity" subtitle="Your latest 5 workouts" >
       <div className="space-y-3">
         {sortedWorkouts.slice(0, 5).map((workout, index) => (
           <div 
-            key={workout.id || index}
-            className="bg-dark-bg border border-dark-border rounded-lg p-4 hover:border-primary transition-colors"
+          key={workout.id || index}
+          className="bg-dark-bg border border-dark-border rounded-lg p-4 hover:border-primary transition-colors"
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -80,6 +81,11 @@ const RecentActivity = ({ workouts, loading }) => {
                   <span className="text-xs">{workout.total_volume.toLocaleString()} lbs</span>
                 </div>
               )}
+              <Pencil
+                size={16}
+                className="text-dark-muted hover:text-primary cursor-pointer"
+                onClick={() => onEdit(workout)}
+              />  
             </div>
             
             <div className="space-y-2">

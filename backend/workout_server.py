@@ -35,7 +35,7 @@ CORS(app,
         }
      },
      allow_headers=["Content-Type"],
-     methods=["GET", "POST", "OPTIONS"],
+     methods=["GET", "POST", "OPTIONS", "PUT"],
      supports_credentials=False
 )
 # ============================================
@@ -277,6 +277,79 @@ def log_workout():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route("/api/update_workout/", methods=["PUT"])
+def update_workout():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Check API key
+        if data.get('api_key') != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+        
+        if not data.get("id"):
+            return jsonify({'error': 'Workout ID is required for update'}), 400
+        
+        # ----------------------------
+        # 1️⃣ Update workout row
+        # ----------------------------
+        workout_update = {
+            "date": data.get("date"),
+            "workout_type": data.get("workout_type", "strength"),
+            "duration_minutes": data.get("duration_minutes"),
+            "notes": data.get("notes"),
+        }
+
+        supabase.table("workouts") \
+            .update(workout_update) \
+            .eq("id", data.get("id")) \
+            .execute()
+
+        # ----------------------------
+        # 2️⃣ Delete old exercises
+        # (sets auto-delete via cascade)
+        # ----------------------------
+        supabase.table("exercises") \
+            .delete() \
+            .eq("workout_id", data.get("id")) \
+            .execute()
+
+        # ----------------------------
+        # 3️⃣ Insert new exercises + sets
+        # ----------------------------
+        exercises = data.get("exercises", [])
+
+        for ex_index, exercise in enumerate(exercises):
+            ex_insert = supabase.table("exercises").insert({
+                "workout_id": data.get("id"),
+                "exercise_name": exercise["name"],
+                "order_index": ex_index
+            }).execute()
+
+            exercise_id = ex_insert.data[0]["id"]
+
+            sets_to_insert = []
+            for set_data in exercise.get("sets", []):
+                sets_to_insert.append({
+                    "exercise_id": exercise_id,
+                    "set_number": set_data["set_number"],
+                    "reps": set_data["reps"],
+                    "weight_lbs": set_data["weight_lbs"]
+                })
+
+            if sets_to_insert:
+                supabase.table("sets").insert(sets_to_insert).execute()
+
+        return jsonify({"message": "Workout updated successfully"}), 200
+
+    except Exception as e:
+        print("UPDATE WORKOUT ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """
