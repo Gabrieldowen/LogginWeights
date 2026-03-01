@@ -21,7 +21,10 @@ const Analytics = () => {
         
         // Auto-select first exercise if available
         if (data && data.length > 0) {
-          setSelectedExercise(data[0]);
+          const sorted = [...data].sort(
+            (a, b) => b.history.length - a.history.length
+          );
+          setSelectedExercise(sorted[0]);
         }
       } catch (err) {
         console.error('Failed to fetch exercises:', err);
@@ -91,6 +94,10 @@ const Analytics = () => {
     );
   }
 
+    const sortedExercises = [...exercises].sort(
+      (a, b) => b.history.length - a.history.length
+    );
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -99,7 +106,26 @@ const Analytics = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Right Content - Chart and History */}
+        {/* upper Sidebar - Exercise Dropdown */}
+        <div className="lg:col-span-1">
+          <Card title="Exercises" subtitle="Select a movement">
+            <select
+              value={selectedExercise?.name || ''}
+              onChange={(e) => {
+                const found = exercises.find(ex => ex.name === e.target.value);
+                setSelectedExercise(found);
+              }}
+              className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {sortedExercises.map((exercise, idx) => (
+                <option key={idx} value={exercise.name}>
+                  {exercise.name} ({exercise.history.length})
+                </option>  
+              ))}
+            </select>
+          </Card>
+        </div>
+        {/* lower Content - Chart and History */}
         <div className="lg:col-span-2">
           {selectedExercise ? (
             <ExerciseChart exercise={selectedExercise} />
@@ -111,21 +137,6 @@ const Analytics = () => {
               </div>
             </Card>
           )}
-        </div>
-        {/* Left Sidebar - Exercise Cards */}
-        <div className="lg:col-span-1">
-          <Card title="Exercises" subtitle={`${exercises.length} tracked movements`}>
-            <div className="space-y-3">
-              {exercises.map((exercise, idx) => (
-                <ExerciseCard
-                  key={idx}
-                  exercise={exercise}
-                  isSelected={selectedExercise?.name === exercise.name}
-                  onSelect={() => setSelectedExercise(exercise)}
-                />
-              ))}
-            </div>
-          </Card>
         </div>
 
       </div>
