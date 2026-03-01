@@ -23,6 +23,18 @@ export const workoutAPI = {
     }
   },
 
+  logManualWorkout: async (workoutData) => {
+  try {
+    const response = await apiClient.post('/webhook/log_workout', {
+      ...workoutData,
+      api_key: API_KEY,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to log workout');
+  }
+},
+
   /**
    * Fetch all workouts
    * @returns {Promise} Array of workout objects

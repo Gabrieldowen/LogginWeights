@@ -116,7 +116,7 @@ const WorkoutManualEntry = ({ onWorkoutSaved }) => {
         })),
       };
 
-      await workoutAPI.logWorkout(JSON.stringify(workoutData));
+      await workoutAPI.logManualWorkout(workoutData);
 
       // Reset form
       setExercises([]);
