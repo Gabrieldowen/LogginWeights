@@ -183,6 +183,7 @@ const WorkoutManualEntry = ({
     setDeleting(true);
     try {
       await workoutAPI.updateWorkout(initialData.id, workoutData, { deleted: true });
+      window.location.reload();
     } catch (error) {
       console.error('Failed to delete workout:', error);
       alert('Failed to delete workout. Please try again.');
