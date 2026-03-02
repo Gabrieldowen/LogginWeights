@@ -4,7 +4,7 @@ Flask server that receives workout text, processes with Gemini AI, and stores in
 """
 
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from supabase import create_client, Client
 from google import genai  
 import json
@@ -280,8 +280,12 @@ def log_workout():
 
 
 @app.route("/api/update_workout/", methods=["PUT"])
+@cross_origin(origin="https://loggin-weights.vercel.app")  # handles preflight
 def update_workout():
     try:
+        if request.method == "OPTIONS":
+            return "", 200  # Preflight response
+
         data = request.get_json()
         
         if not data:
