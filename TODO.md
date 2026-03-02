@@ -4,6 +4,8 @@ Things to add.
 4. add guide to setup iphone shortcuts
 5. edit workouts
 - analytics shows the full workout
+- delete workouts
+- put manual entry and log workout on the same tab
 
 
 Issues

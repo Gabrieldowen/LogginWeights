@@ -325,28 +325,29 @@ def update_workout():
         # ----------------------------
         # 3️⃣ Insert new exercises + sets
         # ----------------------------
-        exercises = data.get("exercises", [])
+        if data.get("deleted") == False:  # If workout is marked as deleted, skip re-inserting exercises
+            exercises = data.get("exercises", [])
 
-        for ex_index, exercise in enumerate(exercises):
-            ex_insert = supabase.table("exercises").insert({
-                "workout_id": data.get("id"),
-                "exercise_name": exercise["name"],
-                "order_index": ex_index
-            }).execute()
+            for ex_index, exercise in enumerate(exercises):
+                ex_insert = supabase.table("exercises").insert({
+                    "workout_id": data.get("id"),
+                    "exercise_name": exercise["name"],
+                    "order_index": ex_index
+                }).execute()
 
-            exercise_id = ex_insert.data[0]["id"]
+                exercise_id = ex_insert.data[0]["id"]
 
-            sets_to_insert = []
-            for set_data in exercise.get("sets", []):
-                sets_to_insert.append({
-                    "exercise_id": exercise_id,
-                    "set_number": set_data["set_number"],
-                    "reps": set_data["reps"],
-                    "weight_lbs": set_data["weight_lbs"]
-                })
+                sets_to_insert = []
+                for set_data in exercise.get("sets", []):
+                    sets_to_insert.append({
+                        "exercise_id": exercise_id,
+                        "set_number": set_data["set_number"],
+                        "reps": set_data["reps"],
+                        "weight_lbs": set_data["weight_lbs"]
+                    })
 
-            if sets_to_insert:
-                supabase.table("sets").insert(sets_to_insert).execute()
+                if sets_to_insert:
+                    supabase.table("sets").insert(sets_to_insert).execute()
 
         return jsonify({"message": "Workout updated successfully"}), 200
 

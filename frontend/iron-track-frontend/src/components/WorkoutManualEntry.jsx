@@ -13,6 +13,7 @@ const WorkoutManualEntry = ({
   const [newExerciseName, setNewExerciseName] = useState('');
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
+  const [deleting, setDeleting] = useState(false);  // ← add this state
 
   useEffect(() => {
   if (!initialData) return;
@@ -111,7 +112,7 @@ const WorkoutManualEntry = ({
       }, 0);
       return total + exerciseVolume;
     }, 0);
-  };
+  };  
 
   const handleSave = async () => {
     if (exercises.length === 0) {
@@ -157,6 +158,36 @@ const WorkoutManualEntry = ({
       alert('Failed to save workout. Please try again.');
     } finally {
       setSaving(false);
+    }
+  };
+
+
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this workout? This cannot be undone.')) return;
+
+    const workoutData = {
+        date: new Date().toISOString().split('T')[0],
+        workout_type: 'strength',
+        duration_minutes: null,
+        notes: notes.trim() || null,
+        exercises: exercises.map((ex) => ({
+          name: ex.name,
+          sets: ex.sets.map((set, idx) => ({
+            set_number: idx + 1,
+            reps: set.reps,
+            weight_lbs: set.weight,
+          })),
+        })),
+      };
+
+    setDeleting(true);
+    try {
+      await workoutAPI.updateWorkout(initialData.id, workoutData, { deleted: true });
+    } catch (error) {
+      console.error('Failed to delete workout:', error);
+      alert('Failed to delete workout. Please try again.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -347,6 +378,16 @@ const WorkoutManualEntry = ({
               </span>
               <span className="text-dark-muted"> lbs</span>
             </div>
+            {mode === "edit" && (
+              <Button
+                onClick={handleDelete}
+                disabled={deleting}
+                icon={Trash2}
+                className={`bg-red-600 hover:bg-red-700 ${deleting ? 'animate-pulse' : ''}`}
+              >
+                {deleting ? 'Deleting...' : 'Delete Workout'}
+              </Button>
+            )}
             <Button
               onClick={handleSave}
               disabled={saving}

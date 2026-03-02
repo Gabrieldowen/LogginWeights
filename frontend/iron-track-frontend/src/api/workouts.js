@@ -35,11 +35,11 @@ export const workoutAPI = {
     }
   },
 
-async updateWorkout(id, workoutData) {
+async updateWorkout(id, workoutData, deleted = false) {
   return fetch(`/update_workout/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(workoutData),
+    body: JSON.stringify({ ...workoutData, deleted }),
   });
 },
 
