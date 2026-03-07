@@ -1,0 +1,12 @@
+Python Project Setup (Mac)
+
+1.  Create a virtual environment python3 -m venv venv
+
+2.  Activate it source venv/bin/activate
+
+3.  Install project dependencies pip install -r requirements.txt
+
+4.  Run the server python workout_server.py
+
+Notes: - When the environment is active your terminal will show
+(venv). - Each time you reopen the project run: source venv/bin/activate
