@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Minus, Trash2, Save, Dumbbell, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Minus, Trash2, Save, Dumbbell, X, ChevronDown } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import { workoutAPI } from '../api/workouts';
@@ -13,37 +13,83 @@ const WorkoutManualEntry = ({
   const [newExerciseName, setNewExerciseName] = useState('');
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
-  const [deleting, setDeleting] = useState(false);  // ← add this state
+  const [deleting, setDeleting] = useState(false);
+
+  // Exercise history for dropdown
+  const [exerciseHistory, setExerciseHistory] = useState([]); // [{ name, count }]
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState([]);
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Fetch past exercises on mount, sorted by frequency
+  useEffect(() => {
+    const fetchExerciseHistory = async () => {
+      try {
+        const data = await workoutAPI.getAllExercises();
+        const sorted = [...data]
+          .sort((a, b) => b.history.length - a.history.length)
+          .map((ex) => ({ name: ex.name, count: ex.history.length }));
+        setExerciseHistory(sorted);
+      } catch (err) {
+        console.error('Could not load exercise history:', err);
+      }
+    };
+    fetchExerciseHistory();
+  }, []);
+
+  // Update filtered suggestions when input changes
+  useEffect(() => {
+    const query = newExerciseName.trim().toLowerCase();
+    if (query === '') {
+      setFilteredSuggestions(exerciseHistory);
+    } else {
+      setFilteredSuggestions(
+        exerciseHistory.filter((ex) => ex.name.toLowerCase().includes(query))
+      );
+    }
+  }, [newExerciseName, exerciseHistory]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
-  if (!initialData) return;
-
-  setExercises(
-    initialData.exercises.map((ex) => ({
-      id: Date.now() + Math.random(),
-      name: ex.name,
-      sets: ex.sets.map((set) => ({
+    if (!initialData) return;
+    setExercises(
+      initialData.exercises.map((ex) => ({
         id: Date.now() + Math.random(),
-        reps: set.reps,
-        weight: set.weight_lbs ?? set.weight
-      })),
-    }))
-  );
+        name: ex.name,
+        sets: ex.sets.map((set) => ({
+          id: Date.now() + Math.random(),
+          reps: set.reps,
+          weight: set.weight_lbs ?? set.weight,
+        })),
+      }))
+    );
+    setNotes(initialData.notes || '');
+  }, [initialData]);
 
-  setNotes(initialData.notes || '');
-}, [initialData]);
-
-  const addExercise = () => {
-    if (!newExerciseName.trim()) return;
+  const addExercise = (nameOverride) => {
+    const name = (nameOverride ?? newExerciseName).trim();
+    if (!name) return;
 
     const newExercise = {
       id: Date.now(),
-      name: newExerciseName.trim(),
+      name,
       sets: [{ id: Date.now(), reps: 5, weight: 0 }],
     };
 
     setExercises([...exercises, newExercise]);
     setNewExerciseName('');
+    setDropdownOpen(false);
   };
 
   const removeExercise = (exerciseId) => {
@@ -76,10 +122,7 @@ const WorkoutManualEntry = ({
     setExercises(
       exercises.map((ex) => {
         if (ex.id === exerciseId) {
-          return {
-            ...ex,
-            sets: ex.sets.filter((s) => s.id !== setId),
-          };
+          return { ...ex, sets: ex.sets.filter((s) => s.id !== setId) };
         }
         return ex;
       })
@@ -107,23 +150,17 @@ const WorkoutManualEntry = ({
 
   const calculateTotalVolume = () => {
     return exercises.reduce((total, ex) => {
-      const exerciseVolume = ex.sets.reduce((sum, set) => {
-        return sum + set.reps * set.weight;
-      }, 0);
-      return total + exerciseVolume;
+      return total + ex.sets.reduce((sum, set) => sum + set.reps * set.weight, 0);
     }, 0);
-  };  
+  };
 
   const handleSave = async () => {
     if (exercises.length === 0) {
       alert('Please add at least one exercise');
       return;
     }
-
     setSaving(true);
-
     try {
-      // Format data to match backend schema
       const workoutData = {
         date: new Date().toISOString().split('T')[0],
         workout_type: 'strength',
@@ -139,20 +176,15 @@ const WorkoutManualEntry = ({
         })),
       };
 
-      if (mode === "edit" && initialData?.id) {
+      if (mode === 'edit' && initialData?.id) {
         await workoutAPI.updateWorkout(initialData.id, workoutData);
       } else {
         await workoutAPI.logManualWorkout(workoutData);
       }
 
-      // Reset form
       setExercises([]);
       setNotes('');
-
-      // Notify parent
-      if (onWorkoutSaved) {
-        onWorkoutSaved();
-      }
+      if (onWorkoutSaved) onWorkoutSaved();
     } catch (error) {
       console.error('Failed to save workout:', error);
       alert('Failed to save workout. Please try again.');
@@ -161,35 +193,95 @@ const WorkoutManualEntry = ({
     }
   };
 
-
   const handleDelete = async () => {
-  if (!window.confirm('Are you sure you want to delete this workout?')) return;
-  setDeleting(true);
-  try {
-    await workoutAPI.deleteWorkout(initialData.id);
-    window.location.reload();
-  } catch (error) {
-    console.error('Failed to delete workout:', error);
-    alert('Failed to delete workout. Please try again.');
-  } finally {
-    setDeleting(false);
-  }
-};
+    if (!window.confirm('Are you sure you want to delete this workout?')) return;
+    setDeleting(true);
+    try {
+      await workoutAPI.deleteWorkout(initialData.id);
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to delete workout:', error);
+      alert('Failed to delete workout. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Is the current input value a new exercise (not in history)?
+  const isNewExercise =
+    newExerciseName.trim() !== '' &&
+    !exerciseHistory.some(
+      (ex) => ex.name.toLowerCase() === newExerciseName.trim().toLowerCase()
+    );
 
   return (
     <Card title="Manual Entry" subtitle="Build your workout set by set">
       <div className="space-y-4">
-        {/* Add Exercise Input */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newExerciseName}
-            onChange={(e) => setNewExerciseName(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && addExercise()}
-            placeholder="Exercise name (e.g., Bench Press)"
-            className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-          />
-          <Button onClick={addExercise} icon={Plus} className="shrink-0">
+
+        {/* Exercise Combobox */}
+        <div className="flex gap-2" ref={dropdownRef}>
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={newExerciseName}
+              onChange={(e) => {
+                setNewExerciseName(e.target.value);
+                setDropdownOpen(true);
+              }}
+              onFocus={() => setDropdownOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addExercise();
+                if (e.key === 'Escape') setDropdownOpen(false);
+              }}
+              placeholder="Search or add exercise..."
+              className="w-full px-3 py-2 pr-8 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+            />
+            <button
+              onClick={() => {
+                setDropdownOpen((prev) => !prev);
+                inputRef.current?.focus();
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-dark-muted hover:text-dark-text"
+            >
+              <ChevronDown size={14} />
+            </button>
+
+            {/* Dropdown */}
+            {dropdownOpen && (filteredSuggestions.length > 0 || isNewExercise) && (
+              <ul className="absolute z-50 mt-1 w-full bg-dark-surface border border-dark-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+
+                {/* "Add new" option when input doesn't match any existing exercise */}
+                {isNewExercise && (
+                  <li
+                    onMouseDown={() => addExercise()}
+                    className="px-3 py-2 text-sm cursor-pointer text-primary hover:bg-dark-border flex items-center gap-2"
+                  >
+                    <Plus size={12} />
+                    Add &ldquo;{newExerciseName.trim()}&rdquo;
+                  </li>
+                )}
+
+                {filteredSuggestions.map((ex) => (
+                  <li
+                    key={ex.name}
+                    onMouseDown={() => addExercise(ex.name)}
+                    className="px-3 py-2 text-sm cursor-pointer text-dark-text hover:bg-dark-border flex items-center justify-between"
+                  >
+                    <span>{ex.name}</span>
+                    <span className="text-dark-muted text-xs">{ex.count}×</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <Button
+            onClick={() => addExercise()}
+            icon={Plus}
+            className="shrink-0"
+            disabled={!newExerciseName.trim()}
+          >
             Add
           </Button>
         </div>
@@ -209,9 +301,7 @@ const WorkoutManualEntry = ({
               >
                 {/* Exercise Header */}
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-dark-text text-sm">
-                    {exercise.name}
-                  </h4>
+                  <h4 className="font-semibold text-dark-text text-sm">{exercise.name}</h4>
                   <button
                     onClick={() => removeExercise(exercise.id)}
                     className="text-red-500 hover:text-red-400 p-1"
@@ -223,18 +313,13 @@ const WorkoutManualEntry = ({
                 {/* Sets */}
                 <div className="space-y-2">
                   {exercise.sets.map((set, idx) => (
-                    <div
-                      key={set.id}
-                      className="flex items-center gap-2 text-xs"
-                    >
+                    <div key={set.id} className="flex items-center gap-2 text-xs">
                       <span className="text-dark-muted w-8">#{idx + 1}</span>
 
                       {/* Reps Stepper */}
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() =>
-                            updateSet(exercise.id, set.id, 'reps', set.reps - 1)
-                          }
+                          onClick={() => updateSet(exercise.id, set.id, 'reps', set.reps - 1)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
                         >
                           <Minus size={12} />
@@ -242,20 +327,14 @@ const WorkoutManualEntry = ({
                         <input
                           type="number"
                           value={set.reps}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) =>
-                            updateSet(
-                              exercise.id,
-                              set.id,
-                              'reps',
-                              parseInt(e.target.value) || 0
-                            )
+                            updateSet(exercise.id, set.id, 'reps', parseInt(e.target.value) || 0)
                           }
                           className="w-12 text-center bg-dark-surface border border-dark-border rounded py-1 text-dark-text focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <button
-                          onClick={() =>
-                            updateSet(exercise.id, set.id, 'reps', set.reps + 1)
-                          }
+                          onClick={() => updateSet(exercise.id, set.id, 'reps', set.reps + 1)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
                         >
                           <Plus size={12} />
@@ -268,14 +347,7 @@ const WorkoutManualEntry = ({
                       {/* Weight Stepper */}
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() =>
-                            updateSet(
-                              exercise.id,
-                              set.id,
-                              'weight',
-                              set.weight - 5
-                            )
-                          }
+                          onClick={() => updateSet(exercise.id, set.id, 'weight', set.weight - 5)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
                         >
                           <Minus size={12} />
@@ -283,25 +355,14 @@ const WorkoutManualEntry = ({
                         <input
                           type="number"
                           value={set.weight}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) =>
-                            updateSet(
-                              exercise.id,
-                              set.id,
-                              'weight',
-                              parseFloat(e.target.value) || 0
-                            )
+                            updateSet(exercise.id, set.id, 'weight', parseFloat(e.target.value) || 0)
                           }
                           className="w-14 text-center bg-dark-surface border border-dark-border rounded py-1 text-dark-text focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <button
-                          onClick={() =>
-                            updateSet(
-                              exercise.id,
-                              set.id,
-                              'weight',
-                              set.weight + 5
-                            )
-                          }
+                          onClick={() => updateSet(exercise.id, set.id, 'weight', set.weight + 5)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
                         >
                           <Plus size={12} />
@@ -353,7 +414,7 @@ const WorkoutManualEntry = ({
           </div>
         )}
 
-        {mode === "edit" && (
+        {mode === 'edit' && (
           <Button
             onClick={handleDelete}
             disabled={deleting}
@@ -363,6 +424,7 @@ const WorkoutManualEntry = ({
             {deleting ? 'Deleting...' : 'Delete Workout'}
           </Button>
         )}
+
         {/* Total Volume & Save */}
         {exercises.length > 0 && (
           <div className="flex items-center justify-between pt-3 border-t border-dark-border">
