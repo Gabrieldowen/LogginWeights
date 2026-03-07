@@ -163,34 +163,18 @@ const WorkoutManualEntry = ({
 
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this workout? This cannot be undone.')) return;
-
-    const workoutData = {
-        date: new Date().toISOString().split('T')[0],
-        workout_type: 'strength',
-        duration_minutes: null,
-        notes: notes.trim() || null,
-        exercises: exercises.map((ex) => ({
-          name: ex.name,
-          sets: ex.sets.map((set, idx) => ({
-            set_number: idx + 1,
-            reps: set.reps,
-            weight_lbs: set.weight,
-          })),
-        })),
-      };
-
-    setDeleting(true);
-    try {
-      await workoutAPI.updateWorkout(initialData.id, workoutData, { deleted: true });
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to delete workout:', error);
-      alert('Failed to delete workout. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
-  };
+  if (!window.confirm('Are you sure you want to delete this workout?')) return;
+  setDeleting(true);
+  try {
+    await workoutAPI.deleteWorkout(initialData.id);
+    window.location.reload();
+  } catch (error) {
+    console.error('Failed to delete workout:', error);
+    alert('Failed to delete workout. Please try again.');
+  } finally {
+    setDeleting(false);
+  }
+};
 
   return (
     <Card title="Manual Entry" subtitle="Build your workout set by set">
@@ -369,6 +353,16 @@ const WorkoutManualEntry = ({
           </div>
         )}
 
+        {mode === "edit" && (
+          <Button
+            onClick={handleDelete}
+            disabled={deleting}
+            icon={Trash2}
+            className={`bg-red-600 hover:bg-red-700 ${deleting ? 'animate-pulse' : ''}`}
+          >
+            {deleting ? 'Deleting...' : 'Delete Workout'}
+          </Button>
+        )}
         {/* Total Volume & Save */}
         {exercises.length > 0 && (
           <div className="flex items-center justify-between pt-3 border-t border-dark-border">
@@ -379,16 +373,6 @@ const WorkoutManualEntry = ({
               </span>
               <span className="text-dark-muted"> lbs</span>
             </div>
-            {mode === "edit" && (
-              <Button
-                onClick={handleDelete}
-                disabled={deleting}
-                icon={Trash2}
-                className={`bg-red-600 hover:bg-red-700 ${deleting ? 'animate-pulse' : ''}`}
-              >
-                {deleting ? 'Deleting...' : 'Delete Workout'}
-              </Button>
-            )}
             <Button
               onClick={handleSave}
               disabled={saving}

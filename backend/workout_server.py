@@ -279,81 +279,69 @@ def log_workout():
         }), 500
 
 
-@app.route("/api/update_workout/", methods=["PUT"])
-@cross_origin(origin="https://loggin-weights.vercel.app")  # handles preflight
-def update_workout():
+@app.route("/api/update_workout/<int:workout_id>", methods=["PUT"])
+@cross_origin(origin="https://loggin-weights.vercel.app")
+def update_workout(workout_id):
     try:
-        if request.method == "OPTIONS":
-            return "", 200  # Preflight response
-
         data = request.get_json()
-        
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
-        
-        # Check API key
         if data.get('api_key') != Config.VITE_API_KEY:
             return jsonify({'error': 'Invalid API key'}), 401
-        
-        if not data.get("id"):
-            return jsonify({'error': 'Workout ID is required for update'}), 400
-        
-        # ----------------------------
-        # 1️⃣ Update workout row
-        # ----------------------------
-        workout_update = {
+
+        # 1. Update workout row
+        supabase.table("workouts").update({
             "date": data.get("date"),
             "workout_type": data.get("workout_type", "strength"),
             "duration_minutes": data.get("duration_minutes"),
             "notes": data.get("notes"),
-        }
+        }).eq("id", workout_id).execute()
 
-        supabase.table("workouts") \
-            .update(workout_update) \
-            .eq("id", data.get("id")) \
-            .execute()
+        # 2. Delete old exercises (sets cascade)
+        supabase.table("exercises").delete().eq("workout_id", workout_id).execute()
 
-        # ----------------------------
-        # 2️⃣ Delete old exercises
-        # (sets auto-delete via cascade)
-        # ----------------------------
-        supabase.table("exercises") \
-            .delete() \
-            .eq("workout_id", data.get("id")) \
-            .execute()
+        # 3. Re-insert exercises + sets
+        for ex_index, exercise in enumerate(data.get("exercises", [])):
+            ex_insert = supabase.table("exercises").insert({
+                "workout_id": workout_id,
+                "exercise_name": exercise["name"],
+                "order_index": ex_index
+            }).execute()
+            exercise_id = ex_insert.data[0]["id"]
 
-        # ----------------------------
-        # 3️⃣ Insert new exercises + sets
-        # ----------------------------
-        if data.get("deleted") == False:  # If workout is marked as deleted, skip re-inserting exercises
-            exercises = data.get("exercises", [])
+            sets_to_insert = [{
+                "exercise_id": exercise_id,
+                "set_number": s["set_number"],
+                "reps": s["reps"],
+                "weight_lbs": s["weight_lbs"]
+            } for s in exercise.get("sets", [])]
 
-            for ex_index, exercise in enumerate(exercises):
-                ex_insert = supabase.table("exercises").insert({
-                    "workout_id": data.get("id"),
-                    "exercise_name": exercise["name"],
-                    "order_index": ex_index
-                }).execute()
-
-                exercise_id = ex_insert.data[0]["id"]
-
-                sets_to_insert = []
-                for set_data in exercise.get("sets", []):
-                    sets_to_insert.append({
-                        "exercise_id": exercise_id,
-                        "set_number": set_data["set_number"],
-                        "reps": set_data["reps"],
-                        "weight_lbs": set_data["weight_lbs"]
-                    })
-
-                if sets_to_insert:
-                    supabase.table("sets").insert(sets_to_insert).execute()
+            if sets_to_insert:
+                supabase.table("sets").insert(sets_to_insert).execute()
 
         return jsonify({"message": "Workout updated successfully"}), 200
-
     except Exception as e:
         print("UPDATE WORKOUT ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/delete_workout/<int:workout_id>", methods=["DELETE"])
+@cross_origin(origin="https://loggin-weights.vercel.app")
+def delete_workout(workout_id):
+    try:
+        data = request.get_json()
+        if data.get('api_key') != Config.VITE_API_KEY:
+            return jsonify({'error': 'Invalid API key'}), 401
+
+        # Exercises + sets cascade, just delete the workout
+        supabase.table("exercises").delete().eq("workout_id", workout_id).execute()
+        supabase.table("workouts").delete().eq("id", workout_id).execute()
+
+        return jsonify({"message": "Workout deleted successfully"}), 200
+    except Exception as e:
+        print("DELETE WORKOUT ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/health', methods=['GET'])
 def health_check():

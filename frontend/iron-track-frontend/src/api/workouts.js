@@ -35,26 +35,29 @@ export const workoutAPI = {
     }
   },
 
-async updateWorkout(id, workoutData, deleted = false) {
-  return fetch(`/update_workout/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...workoutData, deleted }),
-  });
-},
-
-  updateWorkout: async (id, workoutData) => {
-    try {
-      const response = await apiClient.put(`/api/update_workout/`, {
+updateWorkout: async (id, workoutData) => {
+  try {
+    const response = await apiClient.put(`/api/update_workout/${id}`, {
       ...workoutData,
       api_key: API_KEY,
-      id: id,
     });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to update workout');
-    }
-  },
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to update workout');
+  }
+},
+
+deleteWorkout: async (id) => {
+  try {
+    const response = await apiClient.delete(`/api/delete_workout/${id}`, {
+      data: { api_key: API_KEY },  // axios DELETE requests need body under `data`
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to delete workout');
+  }
+},
+  
 
   /**
    * Fetch all workouts
