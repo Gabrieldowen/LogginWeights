@@ -11,6 +11,8 @@ const Dashboard = () => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [mode, setMode] = useState("create");
 
+  const [activeTab, setActiveTab] = useState('manual');
+
   const fetchWorkouts = async () => {
     try {
       setLoading(true);
@@ -43,15 +45,36 @@ const handleWorkoutLogged = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column - Workout Logger */}
         <div>
-          <WorkoutLogger onWorkoutLogged={handleWorkoutLogged} />
+        {/* Tabs */}
+        <div className="flex gap-1 mb-0 bg-dark-surface rounded-t-lg p-1 border border-dark-border border-b-0">
+          <button
+            onClick={() => setActiveTab('manual')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'manual' ? 'bg-primary text-white' : 'text-dark-muted hover:text-dark-text'
+            }`}
+          >
+            Manual Entry
+          </button>
+          <button
+            onClick={() => setActiveTab('text')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'text' ? 'bg-primary text-white' : 'text-dark-muted hover:text-dark-text'
+            }`}
+          >
+            AI Logger
+          </button>
         </div>
-         <div>
+
+        {activeTab === 'manual' ? (
           <WorkoutManualEntry
             mode={mode}
             initialData={selectedWorkout}
             onWorkoutSaved={handleWorkoutLogged}
           />
-        </div>
+        ) : (
+          <WorkoutLogger onWorkoutLogged={handleWorkoutLogged} />
+        )}
+      </div>
 
         {/* Right Column - Recent Activity */}
         <div>
