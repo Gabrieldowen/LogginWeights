@@ -64,7 +64,7 @@ Rules:
 - Extract any additional context as notes
 - For "3x5 @ 315lbs" format: create 3 sets, each with 5 reps at 315lbs
 - For workout type assigne "push" "pull" "legs" "full body" "recovery" based on exercises or notes, default to "strength" if unclear
-- If only given a single number its reps for the same exercise and weight as the previous set. If there is no previous set, set as unknown. 
+- If a number is given with no other details enter exercise name as "unknown" with that number as the number of reps
 """
 
 response_schema = {
@@ -103,16 +103,55 @@ response_schema = {
 # HELPER FUNCTIONS
 # ============================================
 
+def _inherit_previous_exercise(workout_data):
+    """
+    Post-processing step: any exercise with name "__inherit__" or weight_lbs -1
+    inherits name and/or weight from the most recent known exercise.
+    """
+    last_name = None
+    last_weight = None
+
+    exercises = workout_data.get('exercises', [])
+
+    for exercise in exercises:
+        name = exercise.get('name', '').strip()
+        sets = exercise.get('sets', [])
+
+        # Resolve name
+        if name == '__inherit__' or name.lower() == 'unknown':
+            if last_name:
+                print(f"  ↩ Inheriting exercise name '{last_name}'")
+                exercise['name'] = last_name
+            else:
+                exercise['name'] = 'Unknown'
+        else:
+            last_name = exercise['name']
+
+        # Resolve weight per set
+        for s in sets:
+            if s.get('weight_lbs') == -1:
+                if last_weight is not None:
+                    print(f"  ↩ Inheriting weight {last_weight}lbs")
+                    s['weight_lbs'] = last_weight
+                else:
+                    s['weight_lbs'] = 0
+            elif s.get('weight_lbs', 0) > 0:
+                last_weight = s['weight_lbs']
+
+    return workout_data
+
+
 def parse_workout_with_gemini(text):
     """
-    Use Gemini AI to parse workout text into structured JSON
+    Use Gemini AI to parse workout text into structured JSON.
+    Inherits exercise name and weight from previous set when only reps are given.
     """
     today = datetime.now().strftime("%Y-%m-%d")
     prompt = GEMINI_PROMPT.format(text=text, today=today)
-    
+
     try:
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-3.1-flash-lite-preview",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -120,19 +159,18 @@ def parse_workout_with_gemini(text):
             }
         )
         result_text = response.text.strip()
-        
-        # Remove markdown code blocks if present
         result_text = result_text.replace('```json', '').replace('```', '').strip()
-        
-        # Parse JSON
+
         workout_data = json.loads(result_text)
-        
-        # Ensure date is present
+
         if not workout_data.get('date'):
             workout_data['date'] = today
-            
+
+        # Fill in inherited name/weight before storing
+        workout_data = _inherit_previous_exercise(workout_data)
+
         return workout_data
-        
+
     except Exception as e:
         raise Exception(f"Failed to parse workout with Gemini: {str(e)}")
 
