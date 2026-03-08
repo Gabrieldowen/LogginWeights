@@ -103,43 +103,99 @@ response_schema = {
 # HELPER FUNCTIONS
 # ============================================
 
+def _get_last_exercise_from_db():
+    """
+    Fetches the most recently logged exercise name and weight from Supabase.
+    Checks today's workout first, then falls back to the most recent past workout.
+    Returns (name, weight) or (None, None) if nothing found.
+    """
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # Step 1: Get the most recent workout (today's if it exists, otherwise latest)
+        workout_response = supabase.table('workouts')\
+            .select('id, date')\
+            .order('date', desc=True)\
+            .limit(1)\
+            .execute()
+
+        if not workout_response.data:
+            return None, None
+
+        workout_id = workout_response.data[0]['id']
+        workout_date = workout_response.data[0]['date']
+        print(f"  🗄 Looking up last exercise from workout on {workout_date}")
+
+        # Step 2: Get the last exercise in that workout by order_index
+        exercise_response = supabase.table('exercises')\
+            .select('id, exercise_name, sets(*)')\
+            .eq('workout_id', workout_id)\
+            .order('order_index', desc=True)\
+            .limit(1)\
+            .execute()
+
+        if not exercise_response.data:
+            return None, None
+
+        last_exercise = exercise_response.data[0]
+        name = last_exercise['exercise_name']
+
+        # Step 3: Get the weight from the last set of that exercise
+        sets = sorted(last_exercise.get('sets', []), key=lambda s: s['set_number'], reverse=True)
+        weight = float(sets[0]['weight_lbs']) if sets and sets[0].get('weight_lbs') is not None else 0
+
+        print(f"  🗄 DB fallback: last exercise was '{name}' @ {weight}lbs")
+        return name, weight
+
+    except Exception as e:
+        print(f"  ⚠ Could not fetch last exercise from DB: {e}")
+        return None, None
+    
 def _inherit_previous_exercise(workout_data):
     """
-    Post-processing step: any exercise with name "__inherit__" or weight_lbs -1
-    inherits name and/or weight from the most recent known exercise.
+    Post-processing step: any exercise with name "unknown" inherits
+    name and weight from the previous exercise in this payload.
+    If there is no previous exercise in this payload (e.g. user just said "7"),
+    falls back to the most recently logged exercise in Supabase.
     """
     last_name = None
     last_weight = None
+    db_fetched = False
 
     exercises = workout_data.get('exercises', [])
 
     for exercise in exercises:
         name = exercise.get('name', '').strip()
         sets = exercise.get('sets', [])
+        is_unknown = name.lower() in ('unknown', '__inherit__', '')
 
-        # Resolve name
-        if name == '__inherit__' or name.lower() == 'unknown':
+        if is_unknown:
+            # Try in-payload fallback first, then DB
+            if last_name is None and not db_fetched:
+                last_name, last_weight = _get_last_exercise_from_db()
+                db_fetched = True
+
             if last_name:
                 print(f"  ↩ Inheriting exercise name '{last_name}'")
                 exercise['name'] = last_name
             else:
                 exercise['name'] = 'Unknown'
+
+            # Inherit weight on every set that has 0 or -1
+            for s in sets:
+                if s.get('weight_lbs', 0) in (0, -1):
+                    if last_weight is not None:
+                        print(f"  ↩ Inheriting weight {last_weight}lbs")
+                        s['weight_lbs'] = last_weight
         else:
             last_name = exercise['name']
-
-        # Resolve weight per set
-        for s in sets:
-            if s.get('weight_lbs') == -1:
-                if last_weight is not None:
-                    print(f"  ↩ Inheriting weight {last_weight}lbs")
-                    s['weight_lbs'] = last_weight
-                else:
-                    s['weight_lbs'] = 0
-            elif s.get('weight_lbs', 0) > 0:
-                last_weight = s['weight_lbs']
+            # Track the last non-zero weight seen in this exercise's sets
+            for s in sets:
+                w = s.get('weight_lbs', 0)
+                if w and w > 0:
+                    last_weight = w
 
     return workout_data
-
 
 def parse_workout_with_gemini(text):
     """
@@ -178,67 +234,99 @@ def parse_workout_with_gemini(text):
 def store_workout_in_supabase(workout_data):
     """
     Store parsed workout data in Supabase database.
-    If a workout exists for the same date, adds exercises to it.
+    - If a workout exists for the same date, adds exercises to it.
+    - If an exercise with the same name already exists in that workout,
+      appends new sets to it instead of creating a duplicate exercise row.
     Returns the workout ID (existing or new).
     """
     try:
         workout_date = workout_data['date']
-        
-        # Step 1: Check if workout already exists for this date
+
+        # Step 1: Find or create today's workout
         existing_workout = supabase.table('workouts')\
             .select('id')\
             .eq('date', workout_date)\
             .execute()
-        
+
         if existing_workout.data and len(existing_workout.data) > 0:
-            # Use existing workout
             workout_id = existing_workout.data[0]['id']
             print(f"✓ Adding to existing workout ID: {workout_id} on {workout_date}")
         else:
-            # Create new workout
             workout_insert = {
                 'date': workout_date,
                 'duration_minutes': workout_data.get('duration_minutes'),
                 'workout_type': workout_data.get('workout_type', 'strength'),
                 'notes': workout_data.get('notes', '')
             }
-            
             workout_response = supabase.table('workouts').insert(workout_insert).execute()
             workout_id = workout_response.data[0]['id']
             print(f"✓ Created new workout ID: {workout_id} on {workout_date}")
-        
-        # Step 2: Insert exercises and sets (same logic for new or existing workouts)
-        for exercise_idx, exercise in enumerate(workout_data.get('exercises', [])):
-            # Insert exercise
-            exercise_insert = {
-                'workout_id': workout_id,
-                'exercise_name': exercise['name'].strip().title(),
-                'order_index': exercise_idx
+
+        # Step 2: Load all exercises already stored under this workout
+        # so we can detect duplicates and append sets rather than re-insert
+        existing_exercises_response = supabase.table('exercises')\
+            .select('id, exercise_name, sets(set_number)')\
+            .eq('workout_id', workout_id)\
+            .execute()
+
+        # Build a lookup: lowercase name -> { id, next_set_number }
+        existing_exercise_map = {}
+        for ex in existing_exercises_response.data:
+            name_key = ex['exercise_name'].strip().lower()
+            set_numbers = [s['set_number'] for s in ex.get('sets', [])]
+            next_set_number = max(set_numbers, default=0) + 1
+            existing_exercise_map[name_key] = {
+                'id': ex['id'],
+                'next_set_number': next_set_number
             }
-            
-            exercise_response = supabase.table('exercises').insert(exercise_insert).execute()
-            exercise_id = exercise_response.data[0]['id']
-            
-            print(f"  ✓ Created exercise: {exercise['name'].strip().title()} (ID: {exercise_id})")
-            
-            # Insert sets for this exercise
-            for set_idx, set_data in enumerate(exercise.get('sets', [])):
+
+        # Step 3: Insert exercises and sets
+        for exercise_idx, exercise in enumerate(workout_data.get('exercises', [])):
+            exercise_name = exercise['name'].strip().title()
+            name_key = exercise_name.lower()
+
+            if name_key in existing_exercise_map:
+                # Exercise already exists — append sets to it
+                exercise_id = existing_exercise_map[name_key]['id']
+                next_set_number = existing_exercise_map[name_key]['next_set_number']
+                print(f"  ↩ Appending to existing exercise: {exercise_name} (ID: {exercise_id})")
+            else:
+                # New exercise — insert it
+                # order_index continues from however many already exist
+                order_index = len(existing_exercise_map) + exercise_idx
+                ex_response = supabase.table('exercises').insert({
+                    'workout_id': workout_id,
+                    'exercise_name': exercise_name,
+                    'order_index': order_index
+                }).execute()
+                exercise_id = ex_response.data[0]['id']
+                next_set_number = 1
+                existing_exercise_map[name_key] = {
+                    'id': exercise_id,
+                    'next_set_number': next_set_number
+                }
+                print(f"  ✓ Created exercise: {exercise_name} (ID: {exercise_id})")
+
+            # Insert sets with correct set_number offset
+            for set_data in exercise.get('sets', []):
                 set_insert = {
                     'exercise_id': exercise_id,
-                    'set_number': set_idx + 1,
+                    'set_number': next_set_number,
                     'reps': set_data['reps'],
                     'weight_lbs': set_data.get('weight_lbs', 0)
                 }
-                
                 supabase.table('sets').insert(set_insert).execute()
-                print(f"    ✓ Created set {set_idx + 1}: {set_data['reps']} reps @ {set_data.get('weight_lbs', 0)}lbs")
-        
+                print(f"    ✓ Set {next_set_number}: {set_data['reps']} reps @ {set_data.get('weight_lbs', 0)}lbs")
+                next_set_number += 1
+
+            # Keep the map in sync for subsequent exercises in the same payload
+            existing_exercise_map[name_key]['next_set_number'] = next_set_number
+
         return workout_id
-        
+
     except Exception as e:
         print(f"❌ ERROR storing workout: {str(e)}")
         raise
-
 # ============================================
 # API ENDPOINTS
 # ============================================
