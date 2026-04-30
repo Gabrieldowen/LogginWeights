@@ -5,7 +5,7 @@ import Card from './Card';
 const ExerciseChart = ({ exercise }) => {
 
   const calculateE1RM = (weight, reps) => {
-    return weight * (1 + reps / 30);
+    return weight * (1 + reps / 44);
   };
 
   const chartData = [...exercise.history]
