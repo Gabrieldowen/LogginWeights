@@ -235,7 +235,7 @@ const WorkoutManualEntry = ({
                 if (e.key === 'Escape') setDropdownOpen(false);
               }}
               placeholder="Search or add exercise..."
-              className="w-full px-3 py-2 pr-8 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              className="w-full px-3 py-2 pr-8 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-[16px]"
             />
             <button
               onClick={() => {
@@ -293,11 +293,11 @@ const WorkoutManualEntry = ({
             <p>No exercises added yet</p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div className="space-y-0">
             {exercises.map((exercise) => (
               <div
                 key={exercise.id}
-                className="bg-dark-bg border border-dark-border rounded-lg p-3"
+                className="py-4 border-b-2 border-dark-border last:border-b-0"
               >
                 {/* Exercise Header */}
                 <div className="flex items-center justify-between mb-3">
@@ -311,13 +311,16 @@ const WorkoutManualEntry = ({
                 </div>
 
                 {/* Sets */}
+                <div className="flex items-center gap-0.5 text-xs font-semibold text-dark-text mb-2 justify-center">
+                  <span className="w-[80px] text-center">Reps</span>
+                  <span className="w-[162px] text-center">Weight</span>
+                </div>
                 <div className="space-y-2">
                   {exercise.sets.map((set, idx) => (
-                    <div key={set.id} className="flex items-center gap-2 text-xs">
-                      <span className="text-dark-muted w-8">#{idx + 1}</span>
+                    <div key={set.id} className="flex items-center gap-1 text-xs justify-center">
 
                       {/* Reps Stepper */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 w-[100px]">
                         <button
                           onClick={() => updateSet(exercise.id, set.id, 'reps', set.reps - 1)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
@@ -339,13 +342,11 @@ const WorkoutManualEntry = ({
                         >
                           <Plus size={12} />
                         </button>
-                        <span className="text-dark-muted ml-1">reps</span>
                       </div>
 
-                      <span className="text-dark-muted">@</span>
 
                       {/* Weight Stepper */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 w-[108px] ml-6">
                         <button
                           onClick={() => updateSet(exercise.id, set.id, 'weight', set.weight - 5)}
                           className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
@@ -367,13 +368,7 @@ const WorkoutManualEntry = ({
                         >
                           <Plus size={12} />
                         </button>
-                        <span className="text-dark-muted ml-1">lbs</span>
                       </div>
-
-                      {/* Volume for this set */}
-                      <span className="text-dark-muted ml-auto text-xs">
-                        {(set.reps * set.weight).toLocaleString()} lbs
-                      </span>
 
                       {/* Remove Set */}
                       {exercise.sets.length > 1 && (
