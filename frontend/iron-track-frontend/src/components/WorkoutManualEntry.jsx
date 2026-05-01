@@ -1,119 +1,97 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Minus, Trash2, Save, Dumbbell, X, ChevronDown } from 'lucide-react';
-import Card from './Card';
-import Button from './Button';
 import { workoutAPI } from '../api/workouts';
 
-const WorkoutManualEntry = ({ 
+const WorkoutManualEntry = ({
   onWorkoutSaved,
   initialData = null,
-  mode = "create"
+  mode = 'create',
+  simplified = true
 }) => {
   const [exercises, setExercises] = useState([]);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [saving, setSaving] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [deleting, setDeleting] = useState(false);
-
-  // Exercise history for dropdown
-  const [exerciseHistory, setExerciseHistory] = useState([]); // [{ name, count }]
+  const [suggestions, setSuggestions] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState([]);
-  const dropdownRef = useRef(null);
   const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-  // Fetch past exercises on mount, sorted by frequency
-  useEffect(() => {
-    const fetchExerciseHistory = async () => {
-      try {
-        const data = await workoutAPI.getAllExercises();
-        const sorted = [...data]
-          .sort((a, b) => b.history.length - a.history.length)
-          .map((ex) => ({ name: ex.name, count: ex.history.length }));
-        setExerciseHistory(sorted);
-      } catch (err) {
-        console.error('Could not load exercise history:', err);
-      }
-    };
-    fetchExerciseHistory();
-  }, []);
 
-  // Update filtered suggestions when input changes
-  useEffect(() => {
-    const query = newExerciseName.trim().toLowerCase();
-    if (query === '') {
-      setFilteredSuggestions(exerciseHistory);
-    } else {
-      setFilteredSuggestions(
-        exerciseHistory.filter((ex) => ex.name.toLowerCase().includes(query))
-      );
-    }
-  }, [newExerciseName, exerciseHistory]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  // preload for edit
   useEffect(() => {
     if (!initialData) return;
+
     setExercises(
       initialData.exercises.map((ex) => ({
         id: Date.now() + Math.random(),
         name: ex.name,
-        sets: ex.sets.map((set) => ({
+        sets: ex.sets.map((s) => ({
           id: Date.now() + Math.random(),
-          reps: set.reps,
-          weight: set.weight_lbs ?? set.weight,
-        })),
+          reps: s.reps,
+          weight: s.weight_lbs ?? s.weight
+        }))
       }))
     );
-    setNotes(initialData.notes || '');
   }, [initialData]);
 
-  const addExercise = (nameOverride) => {
-    const name = (nameOverride ?? newExerciseName).trim();
-    if (!name) return;
+  useEffect(() => {
+     workoutAPI.getAllExercises()
+      .then((data) => setSuggestions([...data].sort((a, b) => (b.count ?? 0) - (a.count ?? 0))))
+      .catch(() => {});
+  }, []);
 
-    const newExercise = {
-      id: Date.now(),
-      name,
-      sets: [{ id: Date.now(), reps: 5, weight: 0 }],
-    };
+  useEffect(() => {
+      const handler = (e) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+          setDropdownOpen(false);
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    },[]);
+ 
+  const filteredSuggestions = suggestions.filter((s) =>
+    s.name.toLowerCase().includes(newExerciseName.toLowerCase())
+  );
+  const isNewExercise = newExerciseName.trim() &&
+    !suggestions.some((s) => s.name.toLowerCase() === newExerciseName.trim().toLowerCase());
 
-    setExercises([...exercises, newExercise]);
+ const addExercise = (name) => {
+   name = (name || newExerciseName).trim();
+   if (!name) return;
+
+    setExercises([
+      ...exercises,
+      {
+        id: Date.now(),
+        name,
+        sets: [{ id: Date.now(), reps: 5, weight: 0 }]
+      }
+    ]);
     setNewExerciseName('');
-    setDropdownOpen(false);
+    setDropdownOpen(false)
   };
 
-  const removeExercise = (exerciseId) => {
-    setExercises(exercises.filter((ex) => ex.id !== exerciseId));
+  const removeExercise = (id) => {
+    setExercises(exercises.filter((e) => e.id !== id));
   };
 
   const addSet = (exerciseId) => {
     setExercises(
       exercises.map((ex) => {
-        if (ex.id === exerciseId) {
-          const lastSet = ex.sets[ex.sets.length - 1];
-          return {
-            ...ex,
-            sets: [
-              ...ex.sets,
-              {
-                id: Date.now(),
-                reps: lastSet?.reps || 5,
-                weight: lastSet?.weight || 0,
-              },
-            ],
-          };
-        }
-        return ex;
+        if (ex.id !== exerciseId) return ex;
+
+        const last = ex.sets[ex.sets.length - 1];
+
+        return {
+          ...ex,
+          sets: [
+            ...ex.sets,
+            {
+              id: Date.now(),
+              reps: last?.reps || 5,
+              weight: last?.weight || 0
+            }
+          ]
+        };
       })
     );
   };
@@ -121,10 +99,12 @@ const WorkoutManualEntry = ({
   const removeSet = (exerciseId, setId) => {
     setExercises(
       exercises.map((ex) => {
-        if (ex.id === exerciseId) {
-          return { ...ex, sets: ex.sets.filter((s) => s.id !== setId) };
-        }
-        return ex;
+        if (ex.id !== exerciseId) return ex;
+
+        return {
+          ...ex,
+          sets: ex.sets.filter((s) => s.id !== setId)
+        };
       })
     );
   };
@@ -132,316 +112,226 @@ const WorkoutManualEntry = ({
   const updateSet = (exerciseId, setId, field, value) => {
     setExercises(
       exercises.map((ex) => {
-        if (ex.id === exerciseId) {
-          return {
-            ...ex,
-            sets: ex.sets.map((s) => {
-              if (s.id === setId) {
-                return { ...s, [field]: Math.max(0, value) };
-              }
-              return s;
-            }),
-          };
-        }
-        return ex;
+        if (ex.id !== exerciseId) return ex;
+
+        return {
+          ...ex,
+          sets: ex.sets.map((s) =>
+            s.id === setId
+              ? { ...s, [field]: Math.max(0, value) }
+              : s
+          )
+        };
       })
     );
   };
 
   const calculateTotalVolume = () => {
-    return exercises.reduce((total, ex) => {
-      return total + ex.sets.reduce((sum, set) => sum + set.reps * set.weight, 0);
-    }, 0);
+    return exercises.reduce(
+      (total, ex) =>
+        total +
+        ex.sets.reduce(
+          (sum, s) => sum + s.reps * s.weight,
+          0
+        ),
+      0
+    );
   };
 
   const handleSave = async () => {
     if (exercises.length === 0) {
-      alert('Please add at least one exercise');
+      alert('Add at least one exercise');
       return;
     }
+
     setSaving(true);
+
     try {
-      const workoutData = {
+      const payload = {
         date: new Date().toISOString().split('T')[0],
         workout_type: 'strength',
         duration_minutes: null,
-        notes: notes.trim() || null,
+        notes: null,
         exercises: exercises.map((ex) => ({
           name: ex.name,
-          sets: ex.sets.map((set, idx) => ({
-            set_number: idx + 1,
-            reps: set.reps,
-            weight_lbs: set.weight,
-          })),
-        })),
+          sets: ex.sets.map((s, i) => ({
+            set_number: i + 1,
+            reps: s.reps,
+            weight_lbs: s.weight
+          }))
+        }))
       };
 
       if (mode === 'edit' && initialData?.id) {
-        await workoutAPI.updateWorkout(initialData.id, workoutData);
+        await workoutAPI.updateWorkout(initialData.id, payload);
       } else {
-        await workoutAPI.logManualWorkout(workoutData);
+        await workoutAPI.logManualWorkout(payload);
       }
 
       setExercises([]);
-      setNotes('');
       if (onWorkoutSaved) onWorkoutSaved();
-    } catch (error) {
-      console.error('Failed to save workout:', error);
-      alert('Failed to save workout. Please try again.');
+
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save workout');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this workout?')) return;
-    setDeleting(true);
-    try {
-      await workoutAPI.deleteWorkout(initialData.id);
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to delete workout:', error);
-      alert('Failed to delete workout. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // Is the current input value a new exercise (not in history)?
-  const isNewExercise =
-    newExerciseName.trim() !== '' &&
-    !exerciseHistory.some(
-      (ex) => ex.name.toLowerCase() === newExerciseName.trim().toLowerCase()
-    );
-
   return (
-    <Card title="Manual Entry" subtitle="Build your workout set by set">
-      <div className="space-y-4">
+    <div className="space-y-4">
 
-        {/* Exercise Combobox */}
-        <div className="flex gap-2" ref={dropdownRef}>
-          <div className="relative flex-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newExerciseName}
-              onChange={(e) => {
-                setNewExerciseName(e.target.value);
-                setDropdownOpen(true);
-              }}
-              onFocus={() => setDropdownOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') addExercise();
-                if (e.key === 'Escape') setDropdownOpen(false);
-              }}
-              placeholder="Search or add exercise..."
-              className="w-full px-3 py-2 pr-8 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-[16px]"
-            />
-            <button
-              onClick={() => {
-                setDropdownOpen((prev) => !prev);
-                inputRef.current?.focus();
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-dark-muted hover:text-dark-text"
-            >
-              <ChevronDown size={14} />
-            </button>
-
-            {/* Dropdown */}
-            {dropdownOpen && (filteredSuggestions.length > 0 || isNewExercise) && (
-              <ul className="absolute z-50 mt-1 w-full bg-dark-surface border border-dark-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
-
-                {/* "Add new" option when input doesn't match any existing exercise */}
-                {isNewExercise && (
-                  <li
-                    onMouseDown={() => addExercise()}
-                    className="px-3 py-2 text-sm cursor-pointer text-primary hover:bg-dark-border flex items-center gap-2"
-                  >
-                    <Plus size={12} />
-                    Add &ldquo;{newExerciseName.trim()}&rdquo;
-                  </li>
-                )}
-
-                {filteredSuggestions.map((ex) => (
-                  <li
-                    key={ex.name}
-                    onMouseDown={() => addExercise(ex.name)}
-                    className="px-3 py-2 text-sm cursor-pointer text-dark-text hover:bg-dark-border flex items-center justify-between"
-                  >
-                    <span>{ex.name}</span>
-                    <span className="text-dark-muted text-xs">{ex.count}×</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <Button
-            onClick={() => addExercise()}
-            icon={Plus}
-            className="shrink-0"
-            disabled={!newExerciseName.trim()}
-          >
-            Add
-          </Button>
+      {/* Add exercise */}
+      <div className="flex gap-2" ref={dropdownRef}>
+        <div className="relative flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={newExerciseName}
+            onChange={(e) => { setNewExerciseName(e.target.value); setDropdownOpen(true); }}
+            onFocus={() => setDropdownOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addExercise();
+              if (e.key === 'Escape') setDropdownOpen(false);
+            }}
+            placeholder="Search or add exercise..."
+            className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-xl text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary text-[16px]"
+          />
+          {dropdownOpen && (filteredSuggestions.length > 0 || isNewExercise) && (
+            <ul className="absolute z-50 mt-1 w-full bg-dark-surface border border-dark-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
+              {isNewExercise && (
+                <li onMouseDown={() => addExercise()} className="px-3 py-2 text-sm cursor-pointer text-primary hover:bg-dark-border flex items-center gap-2">
+                  + Add &ldquo;{newExerciseName.trim()}&rdquo;
+                </li>
+              )}
+              {filteredSuggestions.map((ex) => (
+                <li key={ex.name} onMouseDown={() => addExercise(ex.name)} className="px-3 py-2 text-sm cursor-pointer text-dark-text hover:bg-dark-border flex items-center justify-between">
+                  <span>{ex.name}</span>
+                  <span className="text-dark-muted text-xs">{ex.count}×</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+        <button
+          onClick={addExercise}
+          className="bg-primary px-3 rounded text-white font-semibold"
+        >
+          + Add
+        </button>
+      </div>
 
-        {/* Exercises List */}
-        {exercises.length === 0 ? (
-          <div className="text-center py-8 text-dark-muted text-sm">
-            <Dumbbell size={32} className="mx-auto mb-2 opacity-50" />
-            <p>No exercises added yet</p>
+      {/* Exercises */}
+      {exercises.map((ex) => (
+        <div key={ex.id} className="bg-dark-surface p-3 rounded-lg">
+
+          {/* header */}
+          <div className="flex justify-between mb-2">
+            <div className="font-semibold text-sm text-dark-text">
+              {ex.name}
+            </div>
+            <button
+              onClick={() => removeExercise(ex.id)}
+              className="text-red-500"
+            >
+              ✕
+            </button>
           </div>
-        ) : (
-          <div className="space-y-0">
-            {exercises.map((exercise) => (
-              <div
-                key={exercise.id}
-                className="py-4 border-b-2 border-dark-border last:border-b-0"
-              >
-                {/* Exercise Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-dark-text text-sm">{exercise.name}</h4>
+
+          {/* labels */}
+          <div className="flex justify-center text-xs text-dark-muted mb-1">
+            <span className="w-[80px] text-center">REPS</span>
+            <span className="w-[100px] text-center ml-6">WEIGHT</span>
+          </div>
+
+          {/* sets */}
+          <div className="space-y-2">
+            {ex.sets.map((s) => (
+              <div key={s.id} className="flex items-center justify-center gap-2">
+
+                {/* reps */}
+                <button onClick={() =>
+                  updateSet(ex.id, s.id, 'reps', s.reps - 1)
+                }>-</button>
+
+                <input
+                  type="number"
+                  value={s.reps}
+                  onChange={(e) =>
+                    updateSet(ex.id, s.id, 'reps', parseInt(e.target.value) || 0)
+                  }
+                  className="w-12 text-center bg-dark-bg border border-dark-border rounded"
+                />
+
+                <button onClick={() =>
+                  updateSet(ex.id, s.id, 'reps', s.reps + 1)
+                }>+</button>
+
+                <div className="w-4" />
+
+                {/* weight */}
+                <button onClick={() =>
+                  updateSet(ex.id, s.id, 'weight', s.weight - 5)
+                }>-</button>
+
+                <input
+                  type="number"
+                  value={s.weight}
+                  onChange={(e) =>
+                    updateSet(ex.id, s.id, 'weight', parseFloat(e.target.value) || 0)
+                  }
+                  className="w-14 text-center bg-dark-bg border border-dark-border rounded"
+                />
+
+                <button onClick={() =>
+                  updateSet(ex.id, s.id, 'weight', s.weight + 5)
+                }>+</button>
+
+                {/* remove set */}
+                {ex.sets.length > 1 && (
                   <button
-                    onClick={() => removeExercise(exercise.id)}
-                    className="text-red-500 hover:text-red-400 p-1"
+                    onClick={() => removeSet(ex.id, s.id)}
+                    className="text-red-500"
                   >
-                    <Trash2 size={14} />
+                    ✕
                   </button>
-                </div>
-
-                {/* Sets */}
-                <div className="flex items-center gap-0.5 text-xs font-semibold text-dark-text mb-2 justify-center">
-                  <span className="w-[80px] text-center">Reps</span>
-                  <span className="w-[162px] text-center">Weight</span>
-                </div>
-                <div className="space-y-2">
-                  {exercise.sets.map((set, idx) => (
-                    <div key={set.id} className="flex items-center gap-1 text-xs justify-center">
-
-                      {/* Reps Stepper */}
-                      <div className="flex items-center gap-0.5 w-[100px]">
-                        <button
-                          onClick={() => updateSet(exercise.id, set.id, 'reps', set.reps - 1)}
-                          className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
-                        >
-                          <Minus size={12} />
-                        </button>
-                        <input
-                          type="number"
-                          value={set.reps}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateSet(exercise.id, set.id, 'reps', parseInt(e.target.value) || 0)
-                          }
-                          className="w-12 text-center bg-dark-surface border border-dark-border rounded py-1 text-dark-text focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <button
-                          onClick={() => updateSet(exercise.id, set.id, 'reps', set.reps + 1)}
-                          className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-
-
-                      {/* Weight Stepper */}
-                      <div className="flex items-center gap-0.5 w-[108px] ml-6">
-                        <button
-                          onClick={() => updateSet(exercise.id, set.id, 'weight', set.weight - 5)}
-                          className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
-                        >
-                          <Minus size={12} />
-                        </button>
-                        <input
-                          type="number"
-                          value={set.weight}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateSet(exercise.id, set.id, 'weight', parseFloat(e.target.value) || 0)
-                          }
-                          className="w-14 text-center bg-dark-surface border border-dark-border rounded py-1 text-dark-text focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <button
-                          onClick={() => updateSet(exercise.id, set.id, 'weight', set.weight + 5)}
-                          className="w-6 h-6 bg-dark-surface border border-dark-border rounded hover:bg-dark-border flex items-center justify-center"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-
-                      {/* Remove Set */}
-                      {exercise.sets.length > 1 && (
-                        <button
-                          onClick={() => removeSet(exercise.id, set.id)}
-                          className="text-red-500 hover:text-red-400 p-1"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Add Set Button */}
-                <button
-                  onClick={() => addSet(exercise.id)}
-                  className="mt-2 text-xs text-primary hover:text-primary-dark flex items-center gap-1"
-                >
-                  <Plus size={12} />
-                  Add Set
-                </button>
+                )}
               </div>
             ))}
           </div>
-        )}
 
-        {/* Notes */}
-        {exercises.length > 0 && (
-          <div>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              rows={2}
-              className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-text placeholder-dark-muted focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
-            />
-          </div>
-        )}
-
-        {mode === 'edit' && (
-          <Button
-            onClick={handleDelete}
-            disabled={deleting}
-            icon={Trash2}
-            className={`bg-red-600 hover:bg-red-700 ${deleting ? 'animate-pulse' : ''}`}
+          {/* add set */}
+          <button
+            onClick={() => addSet(ex.id)}
+            className="text-primary text-xs mt-2 font-semibold"
           >
-            {deleting ? 'Deleting...' : 'Delete Workout'}
-          </Button>
-        )}
+            + Add Set
+          </button>
+        </div>
+      ))}
 
-        {/* Total Volume & Save */}
-        {exercises.length > 0 && (
-          <div className="flex items-center justify-between pt-3 border-t border-dark-border">
-            <div className="text-sm">
-              <span className="text-dark-muted">Total Volume: </span>
-              <span className="font-bold text-primary text-lg">
-                {calculateTotalVolume().toLocaleString()}
-              </span>
-              <span className="text-dark-muted"> lbs</span>
-            </div>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              icon={Save}
-              className={saving ? 'animate-pulse' : ''}
-            >
-              {saving ? 'Saving...' : 'Save Workout'}
-            </Button>
+      {/* footer */}
+      {exercises.length > 0 && (
+        <div className="flex justify-between items-center pt-3 border-t border-dark-border">
+          <div className="text-sm">
+            <span className="text-dark-muted">Total: </span>
+            <span className="text-primary font-bold text-lg">
+              {calculateTotalVolume().toLocaleString()}
+            </span>
+            <span className="text-dark-muted"> lbs</span>
           </div>
-        )}
-      </div>
-    </Card>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-primary px-4 py-2 rounded text-white font-semibold"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 
