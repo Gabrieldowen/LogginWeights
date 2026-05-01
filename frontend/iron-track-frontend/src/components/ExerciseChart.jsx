@@ -77,7 +77,7 @@ const ExerciseChart = ({ exercise }) => {
             <Line
               type="monotone"
               dataKey="e1RM"
-              stroke="#3b82f6"
+              stroke="#3365e3"
               strokeWidth={3}
               dot={{ r: 5 }}
               activeDot={{ r: 7 }}

@@ -9,15 +9,15 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0f172a',
-          surface: '#1e293b',
-          border: '#334155',
-          text: '#e2e8f0',
-          muted: '#94a3b8'
+          bg: 'rgb(15, 17, 22)',
+          surface: 'rgb(29, 32, 47)',
+          border: 'rgb(37, 40, 62)',
+          text: 'rgb(226, 232, 240)',
+          muted: 'rgb(75, 85, 98)'
         },
         primary: {
-          DEFAULT: '#3b82f6',
-          dark: '#2563eb'
+          DEFAULT: 'rgb(51, 101, 227)',
+          dark: 'rgb(41, 74, 158)'
         }
       }
     },

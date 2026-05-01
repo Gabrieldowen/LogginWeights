@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import WorkoutManualEntry from '../components/WorkoutManualEntry';
 import WorkoutLogger from '../components/WorkoutLogger';
 import { workoutAPI } from '../api/workouts';
-import { useNavigate } from 'react-router-dom';
+import Analytics from './Analytics'
 
 const Dashboard = () => {
   const [screen, setScreen] = useState('log'); // log | history
@@ -10,8 +10,6 @@ const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [mode, setMode] = useState('create');
-
-  const navigate = useNavigate();
 
   const fetchWorkouts = async () => {
     const data = await workoutAPI.getWorkouts();
@@ -182,6 +180,13 @@ const IconAnalytics = () => (
         </div>
       )}
 
+      {/* ANALYTICS SCREEN */}
+      {screen === 'analytics' && (
+        <div className="flex-1 overflow-y-auto">
+          <Analytics />
+        </div>
+      )}
+
       {/* BOTTOM NAV */}
       <div className="flex border-t border-dark-border">
         <button
@@ -204,7 +209,13 @@ const IconAnalytics = () => (
         >
           History
         </button>
-      <button onClick={() => navigate('/analytics')} className="flex-1 py-3 flex flex-col items-center gap-1 text-dark-muted">
+      <button onClick={() => setScreen('analytics')} 
+          className={`flex-1 py-3 flex flex-col items-center gap-1 ${
+            screen === 'analytics' 
+            ? 'text-primary' 
+            : 'text-dark-muted'
+            }`}
+          >
         <IconAnalytics /><span className="text-[10px] font-bold">Analytics</span>
       </button>
       </div>
