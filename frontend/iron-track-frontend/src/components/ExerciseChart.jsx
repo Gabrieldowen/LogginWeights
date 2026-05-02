@@ -5,6 +5,9 @@ import Card from './Card';
 const ExerciseChart = ({ exercise }) => {
 
   const calculateE1RM = (weight, reps) => {
+    if(reps == 1){
+      return weight;
+    }
     return weight + (weight * 0.125) * (1.0 + (reps - 1))**0.3;
   };
 
